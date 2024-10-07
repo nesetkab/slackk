@@ -172,17 +172,17 @@ def mech_categories(trigger_id, client):
 				"type": "section",
 				"text": {
 					"type": "plain_text",
-					"text": "My category isn't there: DM Nes'et for now, currently fixing this"
+					"text": "My category isn't there:"
+				},
+				"accessory": {
+					"type": "button",
+					"text": {
+						"type": "plain_text",
+						"text": "New Category"
+					},
+					"value": "new",
+					"action_id": "button"
 				}
-				#"accessory": {
-				#	"type": "button",
-				#	"text": {
-				#		"type": "plain_text",
-				#		"text": "New Category"
-				#	},
-				#	"value": "new",
-				#	"action_id": "button"
-				#}
 			}
 		]
 	}
@@ -379,17 +379,17 @@ def prog_categories(trigger_id, client):
 				"type": "section",
 				"text": {
 					"type": "plain_text",
-					"text": "My category isn't there: DM Nes'et for now, currently fixing this"
+					"text": "My category isn't there: "
+				},
+				"accessory": {
+					"type": "button",
+					"text": {
+						"type": "plain_text",
+						"text": "New Category"
+					},
+					"value": "new",
+					"action_id": "button"
 				}
-				#"accessory": {
-				#	"type": "button",
-				#	"text": {
-				#		"type": "plain_text",
-				#		"text": "New Category"
-				#	},
-				#	"value": "new",
-				#	"action_id": "button"
-				#}
 			}
 		]
 	}
@@ -734,8 +734,11 @@ def handle_view_submission_events(ack, body, logger, client):
 	ack()
 	logger.info(body)
 	trigger_id = body["trigger_id"]
-	category = body['view']['state']['values']['yfYF5']['category_action_id']['selected_option']['value']
-	print(category)
+	submitted_data = body['view']['state']['values']
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'category_action_id':
+				category = action_data['selected_option']['value']
 	if category == 'mech':
 		mech_categories(trigger_id, client)
 	elif category == 'prog':
@@ -757,8 +760,11 @@ def handle_view_submission(ack, body, logger, client):
 	logger.info(body)
 	trigger_id = body["trigger_id"]
 	global p_category
-	print(body['view']['state']['values'])
-	p_category = body['view']['state']['values']['o63/8']['static_select-action']['selected_option']['value']
+	submitted_data = body['view']['state']['values']
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'static_select-action':
+				p_category = action_data['selected_option']['value']
 	prog_modal(trigger_id, client)
 
 # New category button
@@ -775,7 +781,11 @@ def handle_view_submission(ack, body, logger, client):
 	ack()
 	logger.info(body)
 	trigger_id = body["trigger_id"]
-	new_cat = body['view']['state']['values']['0LKHC']['plain_text_input-action']['value']
+	submitted_data = body['view']['state']['values']
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'plain_text_input-action':
+				new_cat = action_data['value']
 	prog_options = hkl.load('prog_cat')
 	new_value = new_cat.lower()
 	new_label = new_cat.capitalize()
@@ -833,7 +843,6 @@ def handle_view_submission(ack, body, logger, client):
 			if action_data['type'] == 'plain_text_input':
 				text_reponses.append(action_data['value'])
     
-	#category = submitted_data['WYrS1']['static_select-action']['selected_option']['text']['text']
 	what_you_did = text_reponses[0]
 	what_you_learned = text_reponses[1]
 
@@ -908,8 +917,11 @@ def handle_view_submission(ack, body, logger, client):
 	logger.info(body)
 	trigger_id = body["trigger_id"]
 	global m_category
-	print(body['view']['state']['values'])
-	m_category = body['view']['state']['values']['o9XoE']['static_select-action']['selected_option']['value']
+	submitted_data = body['view']['state']['values']
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'static_select-action':
+				m_category = action_data['selected_option']['value']
 	mech_modal(trigger_id, client)
 
 # New category button
@@ -926,7 +938,11 @@ def handle_view_submission(ack, body, logger, client):
 	ack()
 	logger.info(body)
 	trigger_id = body["trigger_id"]
-	new_cat = body['view']['state']['values']['0LKHC']['plain_text_input-action']['value']
+	submitted_data = body['view']['state']['values']
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'plain_text_input-action':
+				new_cat = action_data['value']
 	mech_options = hkl.load('mech_cat')
 	new_value = new_cat.lower()
 	new_label = new_cat.capitalize()
@@ -979,9 +995,20 @@ def handle_view_submission(ack, body, logger, client):
 			})       
 	
 	#category = submitted_data['WYrS1']['static_select-action']['selected_option']['text']['text']
-	what_you_did = submitted_data['owACm']['plain_text_input-action']['value']
-	what_you_learned = submitted_data['P3QSg']['plain_text_input-action']['value']
-	milestone = submitted_data['K/A5J']['radio_buttons-action']['selected_option']['text']['text']
+	text_reponses = []
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'plain_text_input':
+				text_reponses.append(action_data['value'])
+    
+	what_you_did = text_reponses[0]
+	what_you_learned = text_reponses[1]
+
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'radio_buttons':
+				milestone = action_data['selected_option']['value']
+    
 	files = submitted_data['input_block_id']['file_input_action_id_1']['files']
 
 	submission_data = {
