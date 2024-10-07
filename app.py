@@ -887,20 +887,20 @@ def handle_view_submission(ack, body, logger, client):
 			return obj
 	
 	submission_data = convert_sets_to_lists(submission_data)
-	existing_data = []
+	#existing_data = []
 
-	if os.path.exists("submission_data.json"):
-		with open('submission_data.json', 'r') as json_file:
-			existing_data.clear()
-			existing_data.append(json.load(json_file))
-	else: 
-		existing_data = []
+	#if os.path.exists("submission_data.json"):
+	#	with open('submission_data.json', 'r') as json_file:
+	#		existing_data.clear()
+	#		existing_data.append(json.load(json_file))
+	#else: 
+	#	existing_data = []
 	
-	existing_data.append(submission_data)
+	#existing_data.append(submission_data)
 
 	#write data to json file
 	with open('submission_data.json', 'w') as json_file:
-		json.dump(existing_data, json_file, indent = 4)
+		json.dump(submission_data, json_file, indent = 4)
 	
 	#Send confirmation message
 	send_done_msg(client, submitting_user, entry_time)
@@ -1046,20 +1046,20 @@ def handle_view_submission(ack, body, logger, client):
 			return obj
 	
 	submission_data = convert_sets_to_lists(submission_data)
-	existing_data = []
+	#existing_data = []
 
-	if os.path.exists("submission_data.json"):
-		with open('submission_data.json', 'r') as json_file:
-			existing_data.clear()
-			existing_data.append(json.load(json_file))
-	else: 
-		existing_data = []
+	#if os.path.exists("submission_data.json"):
+	#	with open('submission_data.json', 'r') as json_file:
+	#		existing_data.clear()
+	#		existing_data.append(json.load(json_file))
+	#else: 
+	#	existing_data = []
 	
-	existing_data.append(submission_data)
+	#existing_data.append(submission_data)
 
 	#write data to json file
 	with open('submission_data.json', 'w') as json_file:
-		json.dump(existing_data, json_file, indent = 4)
+		json.dump(submission_data, json_file, indent = 4)
 	
 	#Send confirmation message
 	send_done_msg(client, submitting_user, entry_time)
