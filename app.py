@@ -24,6 +24,9 @@ handler = SlackRequestHandler(app)
 def slack_events():
 	return handler.handle(request)
 
+@app.route('/')
+def hello():
+    return 'Hello, World!'
 #       ###   ##     ##
 #     ##  ## ##     ##
 #    ###### ##     ##
