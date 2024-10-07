@@ -14,7 +14,7 @@ SPREADSHEET_ID = "1MtEOlfBOeKJcHLlKiM7b-rIchdPH6ZA7pGAJUnIXAII"
 SAMPLE_RANGE_NAME = "Sheet1!A1"
 
 
-def main(valueData):
+def outreach_upload(valueData):
     creds = None
     # The file token.json stores the user's access and refresh tokens and is
     # created automatically when the authorization flow completes for the first time.
