@@ -826,11 +826,22 @@ def handle_view_submission(ack, body, logger, client):
 			user_info.append({
 				response['user']['real_name']
 			})       
-	
+   
+	text_reponses = []
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'plain_text_input':
+				text_reponses.append(action_data['value'])
+    
 	#category = submitted_data['WYrS1']['static_select-action']['selected_option']['text']['text']
-	what_you_did = submitted_data['NvOcS']['plain_text_input-action']['value']
-	what_you_learned = submitted_data['t0GL9']['plain_text_input-action']['value']
-	milestone = submitted_data['YV9hL']['radio_buttons-action']['selected_option']['text']['text']
+	what_you_did = text_reponses[0]
+	what_you_learned = text_reponses[1]
+
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'radio_buttons':
+				milestone = action_data['selected_option']['value']
+	
 	#files = submitted_data['input_block_id']['file_input_action_id_1']['files']
 
 	submission_data = {
