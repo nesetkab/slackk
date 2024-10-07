@@ -12,6 +12,7 @@ import requests
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
 from flask import Flask, request
+from gsheet import main
 
 flask_app = Flask(__name__)
 app = App(
@@ -49,22 +50,21 @@ def upload_subdata(client):
 def handle_command(ack, body, logger, client):
 	ack()
 	logger.info(body)
-	#print(body)
 	trigger_id = body["trigger_id"]
 	res = client.chat_postMessage(
         channel="C07QFDDS9QW",
         text="help"
     )
 
-
-
-
-
-
-#       ###   ##     ##
-#     ##  ## ##     ##
-#    ###### ##     ##
-#   ##  ## ###### ######
+#	   #########      ####				####
+#	 ############     ####				####
+#	###        ###    ####				####
+#	###        ###    ####				####
+#	##############    ####				####
+#   ##############    ####				####
+#   ###        ###    ####				####
+#   ###        ###    ##############    ##############
+#   ###        ###    ##############    ##############
 
 def open_modal(trigger_id, client):
 	res = client.views_open(
@@ -124,13 +124,15 @@ def open_modal(trigger_id, client):
 	)
 	return res
 
-
-
-
-#		  MMM    MMM      
-# 		MM  MM MM  MM
-#     MM     MM     MM
-#   MMM              MMM
+#			#######
+#		#######
+#	  ######
+#	 ####			
+#	####
+#	####
+#	####
+#	####
+#	####
 
 def mech_categories(trigger_id, client):
 	mech_options = hkl.load('mech_cat')
@@ -181,7 +183,7 @@ def mech_categories(trigger_id, client):
 						"text": "New Category"
 					},
 					"value": "new",
-					"action_id": "button"
+					"action_id": "m_button"
 				}
 			}
 		]
@@ -388,7 +390,7 @@ def prog_categories(trigger_id, client):
 						"text": "New Category"
 					},
 					"value": "new",
-					"action_id": "button"
+					"action_id": "p_button"
 				}
 			}
 		]
@@ -545,38 +547,8 @@ def prog_modal(trigger_id, client):
 	)
 	return res
 
+
 def outreach_modal(trigger_id, client):
-    res = client.views_open(
-		trigger_id=trigger_id,
-	view={
-		"type": "modal",
-		"callback_id": "outreach-modal-identifier",
-		"submit": {
-			"type": "plain_text",
-			"text": "Submit"
-		},
-		"close": {
-			"type": "plain_text",
-			"text": "Cancel"
-		},
-		"title": {
-			"type": "plain_text",
-			"text": "New Outreach Event"
-		},
-		"blocks": [ 
-      		{
-				"type": "section",
-				"text": {
-					"type": "plain_text",
-					"text": "Work In Progress..."
-				}
-			}
-		]})
-
-
-
-
-def outreach_modal_WIP(trigger_id, client):
 	res = client.views_open(
 		trigger_id=trigger_id,
 	view={
@@ -610,7 +582,7 @@ def outreach_modal_WIP(trigger_id, client):
 				"type": "input",
 				"element": {
 					"type": "datepicker",
-					"action_id": "odatepicker",
+					"action_id": "datepicker",
 					"placeholder": {
 						"type": "plain_text",
 						"text": "What Day?"
@@ -709,7 +681,6 @@ def outreach_modal_WIP(trigger_id, client):
 def handle_command(ack, body, logger, client):
 	ack()
 	logger.info(body)
-	#print(body)
 	trigger_id = body["trigger_id"]
 	open_modal(trigger_id, client)
 
@@ -717,7 +688,6 @@ def handle_command(ack, body, logger, client):
 def handle_command(ack, body, logger, client):
 	ack()
 	logger.info(body)
-	#print(body)
 	trigger_id = body["trigger_id"]
 	outreach_modal(trigger_id, client)
 
@@ -735,10 +705,9 @@ def handle_view_submission_events(ack, body, logger, client):
 	logger.info(body)
 	trigger_id = body["trigger_id"]
 	submitted_data = body['view']['state']['values']
-	print(submitted_data)
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
-			if action_data['type'] == 'category_action_id':
+			if action_data['type'] == 'radio_buttons':
 				category = action_data['selected_option']['value']
 				print(category)
 	if category == 'mech':
@@ -755,6 +724,37 @@ def handle_view_submission_events(ack, body, logger, client):
 def handle_view_submission(ack, body, logger, client):
 	ack()
 	logger.info(body)
+	user_id = body['user']['id']
+	submitted_data = body['view']['state']['values']
+	print(submitted_data)
+
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'plain_text_input':
+				what_you_did = action_data['value']
+    
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'datepicker':
+				date = action_data['selected_date']
+    
+	num_inputs = []
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'number_input':
+				num_inputs.append(action_data['value'])
+	hours = num_inputs[0]
+	members = num_inputs[1]
+	affected = num_inputs[2]
+    
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'radio_buttons':
+				typeO = action_data['selected_option']['value']
+
+	submission_data = [what_you_did,date,hours,members,affected,typeO]
+ 
+	main(submission_data)
  
 @app.view("prog-categories-identifier")
 def handle_view_submission(ack, body, logger, client):
@@ -765,12 +765,12 @@ def handle_view_submission(ack, body, logger, client):
 	submitted_data = body['view']['state']['values']
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
-			if action_data['type'] == 'static_select-action':
+			if action_data['type'] == 'static_select':
 				p_category = action_data['selected_option']['value']
 	prog_modal(trigger_id, client)
 
 # New category button
-@app.action("button")
+@app.action("p_button")
 def handle_some_action(ack, body, logger, client):
 	ack()
 	logger.info(body)
@@ -786,7 +786,7 @@ def handle_view_submission(ack, body, logger, client):
 	submitted_data = body['view']['state']['values']
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
-			if action_data['type'] == 'plain_text_input-action':
+			if action_data['type'] == 'plain_text_input':
 				new_cat = action_data['value']
 	prog_options = hkl.load('prog_cat')
 	new_value = new_cat.lower()
@@ -810,7 +810,6 @@ def handle_view_submission(ack, body, logger, client):
 	#print(body)
 	user_id = body['user']['id']
 	submitted_data = body['view']['state']['values']
-	print(submitted_data)
 	
 	# Keeping track of how many entries
 	entry_number = hkl.load('entrys')
@@ -922,12 +921,12 @@ def handle_view_submission(ack, body, logger, client):
 	submitted_data = body['view']['state']['values']
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
-			if action_data['type'] == 'static_select-action':
+			if action_data['type'] == 'static_select':
 				m_category = action_data['selected_option']['value']
 	mech_modal(trigger_id, client)
 
 # New category button
-@app.action("button")
+@app.action("m_button")
 def handle_some_action(ack, body, logger, client):
 	ack()
 	logger.info(body)
@@ -943,7 +942,7 @@ def handle_view_submission(ack, body, logger, client):
 	submitted_data = body['view']['state']['values']
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
-			if action_data['type'] == 'plain_text_input-action':
+			if action_data['type'] == 'plain_text_input':
 				new_cat = action_data['value']
 	mech_options = hkl.load('mech_cat')
 	new_value = new_cat.lower()
@@ -964,10 +963,8 @@ def handle_view_submission(ack, body, logger, client):
 def handle_view_submission(ack, body, logger, client):
 	ack()
 	logger.info(body)
-	#print(body)
 	user_id = body['user']['id']
 	submitted_data = body['view']['state']['values']
-	print(submitted_data)
 	
 	# Keeping track of how many entries
 	entry_number = hkl.load('entrys')
