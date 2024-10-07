@@ -27,6 +27,22 @@ def slack_events():
 @flask_app.route('/')
 def hello():
     return 'Hello, World!'
+
+# SEND MESSAGES
+def send_done_msg(client, sub_usr, sub_time):
+    confirm_msg = sub_usr + " made an Engineering Notebook entry at " + sub_time 
+    res = client.chat_postMessage(
+        channel="C07QFDDS9QW",
+        text=confirm_msg
+        # You could also use a blocks[] array to send richer content
+    )
+
+
+
+
+
+
+
 #       ###   ##     ##
 #     ##  ## ##     ##
 #    ###### ##     ##
@@ -646,13 +662,8 @@ def handle_view_submission(ack, body, logger, client):
 	with open('submission_data.json', 'w') as json_file:
 		json.dump(existing_data, json_file, indent = 4)
 	
-	#Print data for debug
-	#print(f"Submitted by: {submitting_user}")
-	#print(f"Selected Users: {user_info}")
-	#print(f"Category: {m_category}")
-	#print(f"What You Did: {what_you_did}")
-	#print(f"What You Learned: {what_you_learned}")
-	#print(f"Milestone: {milestone}")
+	#Send confirmation message
+	send_done_msg(client, submitting_user, entry_time)
 	
 
 
