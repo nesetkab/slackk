@@ -6,8 +6,4 @@ def main():
 
     conn = connect(config)
 
-    for file in os.listdir('incoming'):
-        enterData("incoming/"+file, conn)
-
-if __name__ == "__main__":
-    main()
+    enterData("submission_data.json",conn)
