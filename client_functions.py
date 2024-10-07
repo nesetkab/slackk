@@ -258,7 +258,7 @@ def convertArray(string):
 def enterData(data, conn):
 
     with open(data, "r") as f:
-        data_json = json.loads(f.read())
+        data_json = json.loads(json.loads(f.read()))
 
     cur = conn.cursor()
 
