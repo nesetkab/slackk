@@ -1,2 +1,11 @@
+Flask==3.0.3
+google_api_python_client==2.138.0
+google_auth_oauthlib==1.2.1
+hickle==5.0.3
+protobuf==5.28.2
+python-dotenv==1.0.1
+Requests==2.32.3
+slack_bolt==1.19.1
+slack_sdk==3.30.0
 psycopg2
 configparser
