@@ -12,7 +12,8 @@ import requests
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
 from flask import Flask, request
-from gsheet import main
+from gsheet import outreach_upload
+from upload import main
 
 flask_app = Flask(__name__)
 app = App(
@@ -754,7 +755,7 @@ def handle_view_submission(ack, body, logger, client):
 
 	submission_data = [what_you_did,date,hours,members,affected,typeO]
  
-	main(submission_data)
+	outreach_upload(submission_data)
  
 @app.view("prog-categories-identifier")
 def handle_view_submission(ack, body, logger, client):
@@ -903,6 +904,9 @@ def handle_view_submission(ack, body, logger, client):
 	
 	#Send confirmation message
 	send_done_msg(client, submitting_user, entry_time)
+
+	# api
+	main()
  
 
  
@@ -1059,6 +1063,9 @@ def handle_view_submission(ack, body, logger, client):
 	
 	#Send confirmation message
 	send_done_msg(client, submitting_user, entry_time)
+
+	# api
+	main()
 	
 
 
