@@ -735,10 +735,12 @@ def handle_view_submission_events(ack, body, logger, client):
 	logger.info(body)
 	trigger_id = body["trigger_id"]
 	submitted_data = body['view']['state']['values']
+	print(submitted_data)
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'category_action_id':
 				category = action_data['selected_option']['value']
+				print(category)
 	if category == 'mech':
 		mech_categories(trigger_id, client)
 	elif category == 'prog':
