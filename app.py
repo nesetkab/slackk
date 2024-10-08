@@ -28,19 +28,19 @@ def slack_events():
 
 @flask_app.route('/')
 def hello():
-    return 'Hello, World!'
+	return 'Hello, World!'
 
 # SEND MESSAGES
 def send_done_msg(client, sub_usr, sub_time):
-    confirm_msg = sub_usr + " made an Engineering Notebook entry at " + sub_time 
-    res = client.chat_postMessage(
-        channel="C07QFDDS9QW",
-        text=confirm_msg
-    )
-    upload_subdata(client)
-    
+	confirm_msg = sub_usr + " made an Engineering Notebook entry at " + sub_time 
+	res = client.chat_postMessage(
+		channel="C07QFDDS9QW",
+		text=confirm_msg
+	)
+	upload_subdata(client)
+	
 def upload_subdata(client):
-    res = client.files_upload_v2(
+	res = client.files_upload_v2(
 		file="submission_data.json",
 		title="My file",
 		initial_comment="Submission Data",
@@ -53,9 +53,9 @@ def handle_command(ack, body, logger, client):
 	logger.info(body)
 	trigger_id = body["trigger_id"]
 	res = client.chat_postMessage(
-        channel="C07QFDDS9QW",
-        text="help"
-    )
+		channel="C07QFDDS9QW",
+		text="help"
+	)
 
 #	   #########      ####				####
 #	 ############     ####				####
@@ -193,7 +193,7 @@ def mech_categories(trigger_id, client):
 	return res
 
 def new_mech_category(view_id, client):
-    res = client.views_update(
+	res = client.views_update(
 		view_id=view_id,
 	view={
 		"type": "modal",
@@ -225,7 +225,7 @@ def new_mech_category(view_id, client):
 		]
 	}
 	)
-    return res
+	return res
 
 def mech_modal(trigger_id, client):
 	res = client.views_open(
@@ -400,7 +400,7 @@ def prog_categories(trigger_id, client):
 	return res
 
 def new_prog_category(view_id, client):
-    res = client.views_update(
+	res = client.views_update(
 		view_id=view_id,
 	view={
 		"type": "modal",
@@ -432,7 +432,7 @@ def new_prog_category(view_id, client):
 		]
 	}
 	)
-    return res
+	return res
 
 def prog_modal(trigger_id, client):
 	res = client.views_open(
@@ -737,12 +737,12 @@ def handle_view_submission(ack, body, logger, client):
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'plain_text_input':
 				what_you_did = action_data['value']
-    
+	
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'datepicker':
 				date = action_data['selected_date']
-    
+	
 	num_inputs = []
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
@@ -751,7 +751,7 @@ def handle_view_submission(ack, body, logger, client):
 	hours = num_inputs[0]
 	members = num_inputs[1]
 	affected = num_inputs[2]
-    
+	
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'radio_buttons':
@@ -850,72 +850,35 @@ def handle_view_submission(ack, body, logger, client):
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'plain_text_input':
 				text_reponses.append(action_data['value'])
-    
+	
 	what_you_did = text_reponses[0]
 	what_you_learned = text_reponses[1]
 
+	milestone = "no"
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'radio_buttons':
 				milestone = action_data['selected_option']['value']
+	if milestone == "yes":
+		milestone = True
+	elif milestone == "no":
+		milestone = False
 	
 	#files = submitted_data['input_block_id']['file_input_action_id_1']['files']
-	if new_prog_cat_made == True and milestone == "yes":
-		submission_data = {
-			"is_new_project": true,
-  			"project_name": p_category,
-        	"category": "programming",
-			"entry_id": entry_number,
-			"entry_time": entry_time,
-			"submitting_user": submitting_user,
-			"selected_users": user_info,
-			"what_did": what_you_did,
-			"what_learned": what_you_learned,
-			"milestone": true,
-			"files": []
-		}
-	elif new_prog_cat_made == False and milestone == "yes":
-		submission_data = {
-			"is_new_project": false,
-  			"project_name": p_category,
-        	"category": "programming",
-			"entry_id": entry_number,
-			"entry_time": entry_time,
-			"submitting_user": submitting_user,
-			"selected_users": user_info,
-			"what_did": what_you_did,
-			"what_learned": what_you_learned,
-			"milestone": true,
-			"files": []
-		}
-	elif new_prog_cat_made == True and milestone == "no":
-		submission_data = {
-			"is_new_project": true,
-  			"project_name": p_category,
-        	"category": "programming",
-			"entry_id": entry_number,
-			"entry_time": entry_time,
-			"submitting_user": submitting_user,
-			"selected_users": user_info,
-			"what_did": what_you_did,
-			"what_learned": what_you_learned,
-			"milestone": false,
-			"files": []
-		}
-	elif new_prog_cat_made == False and milestone == "no":
-		submission_data = {
-			"is_new_project": false,
-  			"project_name": p_category,
-        	"category": "programming",
-			"entry_id": entry_number,
-			"entry_time": entry_time,
-			"submitting_user": submitting_user,
-			"selected_users": user_info,
-			"what_did": what_you_did,
-			"what_learned": what_you_learned,
-			"milestone": false,
-			"files": []
-		}
+	submission_data = {
+		"is_new_project": new_prog_cat_made,
+  		"project_name": p_category,
+		"category": "programming",
+		"entry_id": entry_number,
+		"entry_time": entry_time,
+		"submitting_user": submitting_user,
+		"selected_users": user_info,
+		"what_did": what_you_did,
+		"what_learned": what_you_learned,
+		"milestone": milestone,
+		"files": []
+	}
+	
 	
 	#for file in files:
 	#	file_info = {
@@ -1052,7 +1015,7 @@ def handle_view_submission(ack, body, logger, client):
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'plain_text_input':
 				text_reponses.append(action_data['value'])
-    
+	
 	what_you_did = text_reponses[0]
 	what_you_learned = text_reponses[1]
 
@@ -1060,7 +1023,7 @@ def handle_view_submission(ack, body, logger, client):
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'radio_buttons':
 				milestone = action_data['selected_option']['value']
-    
+	
 	files = submitted_data['input_block_id']['file_input_action_id_1']['files']
 
 	submission_data = {
