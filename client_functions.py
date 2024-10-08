@@ -272,7 +272,7 @@ def enterData(data, conn):
     conn.commit()
 
     for u in range(len(data_json["selected_users"])):
-        user = data_json["selected_users"][u]
+        user = data_json["selected_users"][u][0]
         command = "SELECT add_user(%s, 'pass');"
         cur.execute(command, (user,))
 
