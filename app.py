@@ -841,9 +841,9 @@ def handle_view_submission(ack, body, logger, client):
 	for user_id in user_ids:
 		response = client.users_info(user=user_id)
 		if response['ok']:
-			user_info.append({
+			user_info.append(
 				response['user']['real_name']
-			})       
+			)
    
 	text_reponses = []
 	for block_id, block_data in submitted_data.items():
