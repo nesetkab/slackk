@@ -956,6 +956,8 @@ def handle_some_action(ack, body, logger, client):
 	ack()
 	logger.info(body)
 	view_id = body["view"]["id"]
+	global new_mech_cat_made
+	new_mech_cat_made = True
 	new_mech_category(view_id, client)
 
 # New category function
@@ -1014,9 +1016,9 @@ def handle_view_submission(ack, body, logger, client):
 	for user_id in user_ids:
 		response = client.users_info(user=user_id)
 		if response['ok']:
-			user_info.append({
+			user_info.append(
 				response['user']['real_name']
-			})       
+			)       
 	
 	#category = submitted_data['WYrS1']['static_select-action']['selected_option']['text']['text']
 	text_reponses = []
@@ -1028,30 +1030,35 @@ def handle_view_submission(ack, body, logger, client):
 	what_you_did = text_reponses[0]
 	what_you_learned = text_reponses[1]
 
+	milestone = "no"
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'radio_buttons':
 				milestone = action_data['selected_option']['value']
+	if milestone == "yes":
+		milestone = True
+	elif milestone == "no":
+		milestone = False
 	
 	files = submitted_data['input_block_id']['file_input_action_id_1']['files']
 
 	submission_data = {
-		"subject": "mechanical",
-		"entry_num": entry_number,
+		"is_new_project": new_mech_cat_made,
+  		"project_name": m_category,
+		"category": "mechanical",
+		"entry_id": entry_number,
 		"entry_time": entry_time,
 		"submitting_user": submitting_user,
 		"selected_users": user_info,
-		"category": m_category,
-		"what_you_did": what_you_did,
-		"what_you_learned": what_you_learned,
+		"what_did": what_you_did,
+		"what_learned": what_you_learned,
 		"milestone": milestone,
-		"files":[]
+		"files": []
 	}
 	
 	for file in files:
 		file_info = {
 			"file_name": file['name'],
-			"file_type": file['filetype'],
 			"file_url": file['url_private']
 		}
 		submission_data["files"].append(file_info)
@@ -1087,6 +1094,9 @@ def handle_view_submission(ack, body, logger, client):
 
 	# api
 	main()
+ 
+	# api worked
+	send_confirm_msg(client)
 	
 
 
