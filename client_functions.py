@@ -258,7 +258,10 @@ def convertArray(string):
 def enterData(data, conn):
 
     with open(data, "r") as f:
-        data_json = json.loads(clean_tuple(f.read()))
+        try:
+            data_json = json.loads(f.read())
+        except:
+            data_json = json.loads(json.dumps(data))
 
     cur = conn.cursor()
 
