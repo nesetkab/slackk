@@ -31,6 +31,12 @@ def hello():
 	return 'Hello, World!'
 
 # SEND MESSAGES
+def send_confirm_msg(client):
+    res = client.chat_postMessage(
+		channel="C07QFDDS9QW",
+		text="API Upload succesful :)"
+	)
+	
 def send_done_msg(client, sub_usr, sub_time):
 	confirm_msg = sub_usr + " made an Engineering Notebook entry at " + sub_time 
 	res = client.chat_postMessage(
@@ -919,6 +925,9 @@ def handle_view_submission(ack, body, logger, client):
 
 	# api
 	main()
+ 
+	# api worked
+	send_confirm_msg(client)
  
 
  
