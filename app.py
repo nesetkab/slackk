@@ -706,6 +706,10 @@ def handle_view_submission_events(ack, body, logger, client):
 	logger.info(body)
 	trigger_id = body["trigger_id"]
 	submitted_data = body['view']['state']['values']
+	global new_prog_cat_made
+	new_prog_cat_made = False
+	global new_mech_cat_made
+	new_mech_cat_made = False
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'radio_buttons':
@@ -776,6 +780,8 @@ def handle_some_action(ack, body, logger, client):
 	ack()
 	logger.info(body)
 	view_id = body["view"]["id"]
+	global new_prog_cat_made
+	new_prog_cat_made = True
 	new_prog_category(view_id, client)
 
 # New category function
@@ -854,19 +860,62 @@ def handle_view_submission(ack, body, logger, client):
 				milestone = action_data['selected_option']['value']
 	
 	#files = submitted_data['input_block_id']['file_input_action_id_1']['files']
-
-	submission_data = {
-        "subject": "programming",
-		"entry_num": entry_number,
-		"entry_time": entry_time,
-		"submitting_user": submitting_user,
-		"selected_users": user_info,
-		"category": p_category,
-		"what_you_did": what_you_did,
-		"what_you_learned": what_you_learned,
-		"milestone": milestone
-		#"files":[]
-	}
+	if new_prog_cat_made == True and milestone == "yes":
+		submission_data = {
+			"is_new_project": true,
+  			"project_name": p_category,
+        	"category": "programming",
+			"entry_id": entry_number,
+			"entry_time": entry_time,
+			"submitting_user": submitting_user,
+			"selected_users": user_info,
+			"what_did": what_you_did,
+			"what_learned": what_you_learned,
+			"milestone": true,
+			"files": []
+		}
+	elif new_prog_cat_made == False and milestone == "yes":
+		submission_data = {
+			"is_new_project": false,
+  			"project_name": p_category,
+        	"category": "programming",
+			"entry_id": entry_number,
+			"entry_time": entry_time,
+			"submitting_user": submitting_user,
+			"selected_users": user_info,
+			"what_did": what_you_did,
+			"what_learned": what_you_learned,
+			"milestone": true,
+			"files": []
+		}
+	elif new_prog_cat_made == True and milestone == "no":
+		submission_data = {
+			"is_new_project": true,
+  			"project_name": p_category,
+        	"category": "programming",
+			"entry_id": entry_number,
+			"entry_time": entry_time,
+			"submitting_user": submitting_user,
+			"selected_users": user_info,
+			"what_did": what_you_did,
+			"what_learned": what_you_learned,
+			"milestone": false,
+			"files": []
+		}
+	elif new_prog_cat_made == False and milestone == "no":
+		submission_data = {
+			"is_new_project": false,
+  			"project_name": p_category,
+        	"category": "programming",
+			"entry_id": entry_number,
+			"entry_time": entry_time,
+			"submitting_user": submitting_user,
+			"selected_users": user_info,
+			"what_did": what_you_did,
+			"what_learned": what_you_learned,
+			"milestone": false,
+			"files": []
+		}
 	
 	#for file in files:
 	#	file_info = {
