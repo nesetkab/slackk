@@ -747,8 +747,12 @@ def handle_view_submission(ack, body, logger, client):
 
 	team_hours = len(user_info) * indiv_hours
 
-	submission_data = [what_you_did,date,user_info,indiv_hours,team_hours,affected]
- 
+
+	members = ""
+	for i in len(user_info):
+		members = members + user_info[i] + ","
+	submission_data = [what_you_did,date,members,indiv_hours,team_hours,affected]
+ 	
 	outreach_result = outreach_upload(submission_data, client)
 	outreach_response(client, outreach_result)
  
