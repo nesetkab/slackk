@@ -36,7 +36,16 @@ def send_confirm_msg(client):
 		channel="C07QFDDS9QW",
 		text="API Upload succesful :)"
 	)
-	
+def outreach_error_msg(client, err):
+	res = client.chat_postMessage(
+		channel="C07QFDDS9QW",
+		text="Outreach error:" + err
+	)	
+def outreach_success(client):
+	res = client.chat_postMessage(
+		channel="C07QFDDS9QW",
+		text="Outreach upload succesful :)"
+	)
 def send_done_msg(client, sub_usr, sub_time):
 	confirm_msg = sub_usr + " made an Engineering Notebook entry at " + sub_time 
 	res = client.chat_postMessage(
@@ -744,7 +753,7 @@ def handle_view_submission(ack, body, logger, client):
 
 	submission_data = [what_you_did,date,user_info,indiv_hours,team_hours,affected]
  
-	outreach_upload(submission_data)
+	outreach_upload(submission_data, client)
  
 @app.view("prog-categories-identifier")
 def handle_view_submission(ack, body, logger, client):
