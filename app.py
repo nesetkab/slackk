@@ -14,7 +14,6 @@ from slack_bolt.adapter.flask import SlackRequestHandler
 from flask import Flask, request
 from gsheet import outreach_upload
 from upload import main
-
 flask_app = Flask(__name__)
 app = App(
 	token = os.environ['SLACK_TOKEN'],
