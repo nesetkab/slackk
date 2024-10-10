@@ -749,7 +749,7 @@ def handle_view_submission(ack, body, logger, client):
 
 
 	members = ""
-	for i in len(user_info):
+	for i in range(len(user_info)):
 		members = members + user_info[i] + ","
 	submission_data = [what_you_did,date,members,indiv_hours,team_hours,affected]
  	
