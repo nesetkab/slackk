@@ -5,7 +5,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
+from app import outreach_error_msg, outreach_success
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -14,7 +14,7 @@ SPREADSHEET_ID = "1MtEOlfBOeKJcHLlKiM7b-rIchdPH6ZA7pGAJUnIXAII"
 SAMPLE_RANGE_NAME = "Sheet1!A1"
 
 
-def outreach_upload(valueData):
+def outreach_upload(valueData, client):
     creds = None
     # The file token.json stores the user's access and refresh tokens and is
     # created automatically when the authorization flow completes for the first time.
@@ -56,9 +56,11 @@ def outreach_upload(valueData):
             .execute()
         )
         print(f"{result.get('updatedCells')} cells updated.")
+        outreach_success(client)
 
     except HttpError as err:
         print(err)
+        outreach_error_msg(client,err)
 
 
 
