@@ -5,7 +5,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from app import outreach_error_msg, outreach_success
+
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -56,11 +56,11 @@ def outreach_upload(valueData, client):
             .execute()
         )
         print(f"{result.get('updatedCells')} cells updated.")
-        outreach_success(client)
+        return result.get('updatedCells')
 
     except HttpError as err:
         print(err)
-        outreach_error_msg(client,err)
+        return err
 
 
 
