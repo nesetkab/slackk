@@ -745,7 +745,7 @@ def handle_view_submission(ack, body, logger, client):
 	indiv_hours = num_inputs[0]
 	affected = num_inputs[1]
 
-	team_hours = len(user_info) * indiv_hours
+	team_hours = int(len(user_info)) * int(indiv_hours)
 
 
 	members = ""
