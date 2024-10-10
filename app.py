@@ -582,7 +582,7 @@ def outreach_modal(trigger_id, client):
 				},
 				"label": {
 					"type": "plain_text",
-					"text": "What did you do? (One sentence)"
+					"text": "Name of outreach"
 				}
 			},
 			{
@@ -598,6 +598,21 @@ def outreach_modal(trigger_id, client):
 				"label": {
 					"type": "plain_text",
 					"text": "Date:"
+				}
+			},
+			{
+				"type": "input",
+				"element": {
+					"type": "multi_users_select",
+					"placeholder": {
+						"type": "plain_text",
+						"text": "Select People"
+					},
+					"action_id": "multi_users_select-action"
+				},
+				"label": {
+					"type": "plain_text",
+					"text": "Which students?"
 				}
 			},
 			{
@@ -621,53 +636,7 @@ def outreach_modal(trigger_id, client):
 				},
 				"label": {
 					"type": "plain_text",
-					"text": "How Many Members?"
-				}
-			},
-			{
-				"type": "input",
-				"element": {
-					"type": "number_input",
-					"is_decimal_allowed": False,
-					"action_id": "number_input-action"
-				},
-				"label": {
-					"type": "plain_text",
 					"text": "How Many People Affected?"
-				}
-			},
-			{
-				"type": "input",
-				"element": {
-					"type": "radio_buttons",
-					"options": [
-						{
-							"text": {
-								"type": "plain_text",
-								"text": "Outreach in FIRST"
-							},
-							"value": "in_first"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": "Outreach in the Community"
-							},
-							"value": "in_community"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": "Outreach in STEM"
-							},
-							"value": "in_stem"
-						}
-					],
-					"action_id": "radio_buttons-action"
-				},
-				"label": {
-					"type": "plain_text",
-					"text": "Category:"
 				}
 			},
 			{
@@ -748,22 +717,32 @@ def handle_view_submission(ack, body, logger, client):
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'datepicker':
 				date = action_data['selected_date']
+				
+	user_ids = []
+	for block_id, block_data in submitted_data.items():
+		for action_id, action_data in block_data.items():
+			if action_data['type'] == 'multi_users_select':
+				user_ids = action_data['selected_users']
+
+	user_info = []
+	for user_id in user_ids:
+		response = client.users_info(user=user_id)
+		if response['ok']:
+			user_info.append(
+				response['user']['real_name']
+			)
 	
 	num_inputs = []
 	for block_id, block_data in submitted_data.items():
 		for action_id, action_data in block_data.items():
 			if action_data['type'] == 'number_input':
 				num_inputs.append(action_data['value'])
-	hours = num_inputs[0]
-	members = num_inputs[1]
-	affected = num_inputs[2]
-	
-	for block_id, block_data in submitted_data.items():
-		for action_id, action_data in block_data.items():
-			if action_data['type'] == 'radio_buttons':
-				typeO = action_data['selected_option']['value']
+	indiv_hours = num_inputs[0]
+	affected = num_inputs[1]
 
-	submission_data = [what_you_did,date,hours,members,affected,typeO]
+	team_hours = len(user_info) * indiv_hours
+
+	submission_data = [what_you_did,date,user_info,indiv_hours,team_hours,affected]
  
 	outreach_upload(submission_data)
  
