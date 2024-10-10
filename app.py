@@ -39,7 +39,7 @@ def send_confirm_msg(client):
 def outreach_response(client, err):
 	res = client.chat_postMessage(
 		channel="C07QFDDS9QW",
-		text="Outreach:" + err
+		text="Outreach:" + str(err)
 	)	
 
 def send_done_msg(client, sub_usr, sub_time):
