@@ -31,7 +31,7 @@ def hello():
 
 # SEND MESSAGES
 def send_confirm_msg(client):
-    res = client.chat_postMessage(
+	res = client.chat_postMessage(
 		channel="C07QFDDS9QW",
 		text="API Upload succesful :)"
 	)
@@ -77,11 +77,32 @@ def handle_command(ack, body, logger, client):
 	ack()
 	logger.info(body)
 	trigger_id = body["trigger_id"]
+	toa = ftc(body["text"])
 	res = client.chat_postMessage(
 		channel=body["channel_id"],
-		text=str(body["text"])
+		text=str(toa)
 	)
 
+def ftc(teamNum):
+	url = "https://api.ftcscout.org/graphql"
+	body = """
+	query {
+  		teamByNumber(number: """ + str(teamNum) + """) {
+			name
+			schoolName
+			location {
+	  			city, state, country
+			}
+			rookieYear
+   			website
+  		}
+	}
+	"""
+	response = requests.post(url=url, json={"query": body}) 
+	print("response status code: ", response.status_code) 
+	if response.status_code == 200: 
+		print("response : ", response.content) 
+		return response.content
 
 
 
