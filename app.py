@@ -80,7 +80,22 @@ def handle_command(ack, body, logger, client):
 	toa = ftc(body["text"])
 	res = client.chat_postMessage(
 		channel=body["channel_id"],
-		text=str(toa)
+		blocks = [
+			{
+			"type": "header",
+			"text": {
+				"type": "plain_text",
+				"text": "Team Info: Team " + str(body["text"])
+			}
+			},
+			{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "*Team Name:*\n" + toa["data"]["teamByNumber"]["name"]
+			}
+			}
+		]
 	)
 
 def ftc(teamNum):
