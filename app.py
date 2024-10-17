@@ -67,6 +67,44 @@ def handle_command(ack, body, logger, client):
 		text="help"
 	)
 
+
+
+
+
+
+@app.command("/ftc")
+def handle_command(ack, body, logger, client):
+	ack()
+	logger.info(body)
+	trigger_id = body["trigger_id"]
+	res = client.chat_postMessage(
+		channel=body["channel_id"],
+		text=str(body["text"])
+	)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #	   #########      ####				####
 #	 ############     ####				####
 #	###        ###    ####				####
