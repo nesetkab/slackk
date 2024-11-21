@@ -38,13 +38,12 @@ def send_confirm_msg(client):
 
 def send_m_update_msg(client, user_info, what_you_did, file_info):
 	attachments = []
-    
-    	for file in file_info:
-        attachment = {
-            "fallback": "Image attachment",
-            "image_url": file,  # Use the URL directly here
-            "text": "Image from URL"  # Optional text to describe the image
-        }
+	for file in file_info:
+		attachment = {
+			"fallback": "Image attachment",
+			"image_url": file,  # Use the URL directly here
+			"text": "Image from URL"  # Optional text to describe the image
+		}
         attachments.append(attachment)
 	res = client.chat_postMessage(
 		channel="C07GPKUFGQL",
