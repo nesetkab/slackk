@@ -35,6 +35,12 @@ def send_confirm_msg(client):
 		channel="C07QFDDS9QW",
 		text="API Upload succesful :)"
 	)
+
+def send_m_update_msg(client, user_info, what_you_did, file_info):
+	res = client.chat_postMessage(
+		channel="C07GPKUFGQL",
+		text="New Entry:\n" + ", ".join(user_info) + "\nThey did this: " + str(what_you_did) + "\nfiles: " + ",".join(file_info)
+	)	
 def outreach_response(client, err):
 	res = client.chat_postMessage(
 		channel="C07QFDDS9QW",
@@ -990,6 +996,7 @@ def handle_view_submission(ack, body, logger, client):
  
 	# api worked
 	send_confirm_msg(client)
+	
  
 
  
@@ -1159,6 +1166,7 @@ def handle_view_submission(ack, body, logger, client):
  
 	# api worked
 	send_confirm_msg(client)
+	send_m_update_msg(client, user_info, what_you_did, file_info)
 	
 
 
