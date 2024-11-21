@@ -1124,7 +1124,9 @@ def handle_view_submission(ack, body, logger, client):
 		"milestone": milestone,
 		"files": []
 	}
-	
+	send_files = []
+	for file in files:
+		send_files.append(file['url_private'])
 	for file in files:
 		file_info = {
 			"file_name": file['name'],
@@ -1166,7 +1168,7 @@ def handle_view_submission(ack, body, logger, client):
  
 	# api worked
 	send_confirm_msg(client)
-	send_m_update_msg(client, user_info, what_you_did, file_info)
+	send_m_update_msg(client, user_info, what_you_did, send_files)
 	
 
 
