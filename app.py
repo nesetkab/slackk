@@ -37,10 +37,20 @@ def send_confirm_msg(client):
 	)
 
 def send_m_update_msg(client, user_info, what_you_did, file_info):
+	attachments = []
+    
+    	for file in file_info:
+        attachment = {
+            "fallback": "Image attachment",
+            "image_url": file,  # Use the URL directly here
+            "text": "Image from URL"  # Optional text to describe the image
+        }
+        attachments.append(attachment)
 	res = client.chat_postMessage(
 		channel="C07GPKUFGQL",
-		text="New Entry:\n" + ", ".join(user_info) + "\nThey did this: " + str(what_you_did) + "\nfiles: " + ",".join(file_info)
-	)	
+		text="New Entry:\n" + ", ".join(user_info) + "\nThey did this: " + str(what_you_did) + "\nfiles: " + ",".join(file_info),
+                attachments=attachments
+            )
 def outreach_response(client, err):
 	res = client.chat_postMessage(
 		channel="C07QFDDS9QW",
