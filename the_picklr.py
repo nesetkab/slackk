@@ -1,12 +1,12 @@
 import hickle as hkl
-prog_options = hkl.load('mech_cat')
+prog_options = [hkl.load('prog_cat')]
 
 new_append = {
-	"value": "Drivetrain",
+	"value": "roadrunner",
 	"text": {
 		"type": "plain_text",
-		"text": "drivetrain"
+		"text": "Roadrunner"
 	}
 }
 prog_options.append(new_append)
-hkl.dump(prog_options, 'mech_cat')
+hkl.dump(prog_options, 'prog_cat')
