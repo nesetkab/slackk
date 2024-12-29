@@ -44,12 +44,12 @@ def send_m_update_msg(client, user_info, what_you_did, file_info):
 			"image_url": file,  # Use the URL directly here
 			"text": "Image from URL"  # Optional text to describe the image
 		}
-        attachments.append(attachment)
+		attachments.append(attachment)
 	res = client.chat_postMessage(
 		channel="C07GPKUFGQL",
 		text="New Entry:\n" + ", ".join(user_info) + "\nThey did this: " + str(what_you_did) + "\nfiles: " + ",".join(file_info),
-                attachments=attachments
-            )
+				attachments=attachments
+			)
 def outreach_response(client, err):
 	res = client.chat_postMessage(
 		channel="C07QFDDS9QW",
