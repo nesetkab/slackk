@@ -282,13 +282,8 @@ def mech_categories(trigger_id, client):
 					"text": "My category isn't there:"
 				},
 				"accessory": {
-					"type": "button",
-					"text": {
-						"type": "plain_text",
-						"text": "New Category"
-					},
-					"value": "new",
-					"action_id": "m_button"
+					"type": "plain_text",
+					"text": "DM Nes'et (this is hardcoded)"
 				}
 			}
 		]
@@ -296,6 +291,8 @@ def mech_categories(trigger_id, client):
 	)
 	return res
 
+# OLD CODE, CATS ARE HARDCODED NOW !!!
+'''
 def new_mech_category(view_id, client):
 	res = client.views_update(
 		view_id=view_id,
@@ -330,7 +327,7 @@ def new_mech_category(view_id, client):
 	}
 	)
 	return res
-
+'''
 def mech_modal(trigger_id, client):
 	res = client.views_open(
 		trigger_id=trigger_id,
@@ -474,7 +471,11 @@ def prog_categories(trigger_id, client):
 						"type": "plain_text",
 						"text": "Select an item"
 					},
-					"options": prog_options,
+					"options": [{'value': 'limelight', 
+				  				'text': {'type': 'plain_text', 'text': 'Limelight'}}, 
+								{'value': 'roadrunner', 
+		 						'text': {'type': 'plain_text', 'text': 'Roadrunner'}
+		 						}],
 					"action_id": "static_select-action"
 				},
 				"label": {
@@ -489,13 +490,8 @@ def prog_categories(trigger_id, client):
 					"text": "My category isn't there: "
 				},
 				"accessory": {
-					"type": "button",
-					"text": {
-						"type": "plain_text",
-						"text": "New Category"
-					},
-					"value": "new",
-					"action_id": "p_button"
+					"type": "plain_text",
+					"text": "DM Nes'et (this is hardcoded)"
 				}
 			}
 		]
@@ -503,6 +499,9 @@ def prog_categories(trigger_id, client):
 	)
 	return res
 
+
+# OLD CODE, CATS ARE HARDCODED NOW !!!
+'''
 def new_prog_category(view_id, client):
 	res = client.views_update(
 		view_id=view_id,
@@ -537,6 +536,8 @@ def new_prog_category(view_id, client):
 	}
 	)
 	return res
+'''
+
 
 def prog_modal(trigger_id, client):
 	res = client.views_open(

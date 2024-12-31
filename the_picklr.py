@@ -1,4 +1,4 @@
 import hickle as hkl
-prog_options = [hkl.load('mech_cat')]
+prog_options = [hkl.load('prog_cat')]
 
 print(prog_options)
