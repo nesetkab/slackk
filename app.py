@@ -20,7 +20,8 @@ app = App(
 	signing_secret = os.environ["SIGNING_SECRET"]
 )
 handler = SlackRequestHandler(app)
-
+m_category = "default"
+p_category = "deafult"
 @flask_app.route("/slack/events", methods=["POST"])
 def slack_events():
 	return handler.handle(request)
