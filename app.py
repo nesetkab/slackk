@@ -7,7 +7,7 @@ load_dotenv(dotenv_path=env_path)
 import json
 import os
 import hickle as hkl
-import datetime
+from datetime import datetime, timezone, timedelta
 import requests
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
@@ -291,11 +291,7 @@ def mech_categories(trigger_id, client):
 				"type": "section",
 				"text": {
 					"type": "plain_text",
-					"text": "My category isn't there:"
-				},
-				"accessory": {
-					"type": "plain_text",
-					"text": "DM Nes'et (this is hardcoded)"
+					"text": "My category isn't there: DM Nes'et (this is hardcoded)"
 				}
 			}
 		]
@@ -498,11 +494,7 @@ def prog_categories(trigger_id, client):
 				"type": "section",
 				"text": {
 					"type": "plain_text",
-					"text": "My category isn't there: "
-				},
-				"accessory": {
-					"type": "plain_text",
-					"text": "DM Nes'et (this is hardcoded)"
+					"text": "My category isn't there: DM Nes'et (this is hardcoded)"
 				}
 			}
 		]
@@ -924,7 +916,7 @@ def handle_view_submission(ack, body, logger, client):
 	hkl.dump(entry_number, 'entrys')
 
 	# Time when entry was submitted
-	entry_time = datetime.datetime.now()
+	entry_time = datetime.now(timezone(timedelta(hours=-7)))
 	entry_time = entry_time.strftime('%c')
 
 	user_response = client.users_info(user=user_id)
@@ -1097,7 +1089,7 @@ def handle_view_submission(ack, body, logger, client):
 	hkl.dump(entry_number, 'entrys')
 
 	# Time when entry was submitted
-	entry_time = datetime.datetime.now()
+	entry_time = datetime.now(timezone(timedelta(hours=-7)))
 	entry_time = entry_time.strftime('%c')
 
 	user_response = client.users_info(user=user_id)
