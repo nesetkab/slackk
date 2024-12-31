@@ -235,7 +235,6 @@ def open_modal(trigger_id, client):
 #	####
 
 def mech_categories(trigger_id, client):
-	mech_options = hkl.load('mech_cat')
 	res = client.views_open(
 		trigger_id=trigger_id,
 	view={
@@ -444,7 +443,6 @@ def mech_modal(trigger_id, client):
 #   ##
 
 def prog_categories(trigger_id, client):
-	prog_options = hkl.load('prog_cat')
 	res = client.views_open(
 		trigger_id=trigger_id,
 	view={
@@ -873,7 +871,7 @@ def handle_some_action(ack, body, logger, client):
 	new_prog_cat_made = True
 	new_prog_category(view_id, client)
 
-# New category function
+'''
 @app.view("n_prog_cat_identifier")
 def handle_view_submission(ack, body, logger, client):
 	ack()
@@ -897,7 +895,7 @@ def handle_view_submission(ack, body, logger, client):
 	prog_options.append(new_append)
 	hkl.dump(prog_options, 'prog_cat')
 	prog_categories(trigger_id, client)
-
+'''
 # Entry
 @app.view("prog-modal-identifier")
 def handle_view_submission(ack, body, logger, client):
@@ -1043,7 +1041,8 @@ def handle_some_action(ack, body, logger, client):
 	global new_mech_cat_made
 	new_mech_cat_made = True
 	new_mech_category(view_id, client)
-
+	
+'''
 # New category function
 @app.view("n_mech_cat_identifier")
 def handle_view_submission(ack, body, logger, client):
@@ -1068,6 +1067,7 @@ def handle_view_submission(ack, body, logger, client):
 	mech_options.append(new_append)
 	hkl.dump(mech_options, 'mech_cat')
 	mech_categories(trigger_id, client)
+'''
 
 # Entry
 @app.view("mech-modal-identifier")
