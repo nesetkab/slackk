@@ -262,7 +262,7 @@ def mech_categories(trigger_id, client):
 						"type": "plain_text",
 						"text": "Select an item"
 					},
-					"options": mech_options,
+					"options": [{'value': 'drivetrain', 'text': {'type': 'plain_text', 'text': 'Drivetrain'}}, {'value': 'intake', 'text': {'type': 'plain_text', 'text': 'Intake'}}]
 					"action_id": "static_select-action"
 				},
 				"label": {
