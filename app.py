@@ -869,7 +869,7 @@ def handle_some_action(ack, body, logger, client):
 	view_id = body["view"]["id"]
 	global new_prog_cat_made
 	new_prog_cat_made = True
-	new_prog_category(view_id, client)
+	#new_prog_category(view_id, client)
 
 '''
 @app.view("n_prog_cat_identifier")
@@ -1040,7 +1040,7 @@ def handle_some_action(ack, body, logger, client):
 	view_id = body["view"]["id"]
 	global new_mech_cat_made
 	new_mech_cat_made = True
-	new_mech_category(view_id, client)
+	#new_mech_category(view_id, client)
 	
 '''
 # New category function
