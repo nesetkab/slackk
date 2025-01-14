@@ -96,7 +96,15 @@ def handle_command(ack, body, logger, client):
 		text="help"
 	)
 
-
+@app.command("/scout")
+def handle_command(ack, body, logger, client):
+	ack()
+	logger.info(body)
+	trigger_id = body["trigger_id"]
+	res = client.chat_postMessage(
+		channel="C07QFDDS9QW",
+		text="scout"
+	)
 
 
 
