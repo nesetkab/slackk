@@ -491,7 +491,10 @@ def prog_categories(trigger_id, client):
 				  				'text': {'type': 'plain_text', 'text': 'Limelight'}}, 
 								{'value': 'roadrunner', 
 		 						'text': {'type': 'plain_text', 'text': 'Roadrunner'}
-		 						}],
+		 						},
+						   		{'value': 'autonomous',
+								 'text': {'type': 'plain_text', 'text': 'Autonomous'}
+								}],
 					"action_id": "static_select-action"
 				},
 				"label": {
