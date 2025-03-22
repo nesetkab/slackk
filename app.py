@@ -1,10 +1,11 @@
-
 from pathlib import Path
 from dotenv import load_dotenv
 env_path = Path('.') / '.env'
 load_dotenv(dotenv_path=env_path)
 
 import json
+import ssl
+import csv
 import os
 import hickle as hkl
 from datetime import datetime, timezone, timedelta
@@ -14,10 +15,22 @@ from slack_bolt.adapter.flask import SlackRequestHandler
 from flask import Flask, request
 from gsheet import outreach_upload
 from upload import main
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+global gc, teams_sheet, scouting_sheet
+gc = None
+teams_sheet = None  
+scouting_sheet = None
+
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = True
+ssl_context.verify_mode = ssl.CERT_REQUIRED
 flask_app = Flask(__name__)
 app = App(
 	token = os.environ['SLACK_TOKEN'],
-	signing_secret = os.environ["SIGNING_SECRET"]
+	signing_secret = os.environ["SIGNING_SECRET"],
+	# ssl = ssl_context
 )
 handler = SlackRequestHandler(app)
 m_category = "default"
@@ -101,13 +114,381 @@ def handle_command(ack, body, logger, client):
 	ack()
 	logger.info(body)
 	trigger_id = body["trigger_id"]
-	res = client.chat_postMessage(
-		channel="C07QFDDS9QW",
-		text="scout"
-	)
+	print("scout")
+	scout_modal(trigger_id, client)  
+	
+@app.view("scout-modal-identifier")
+def handle_scout_submission(ack, body, logger, client):
+	try:
+		ack()
+		# Set up Google Sheets connection
+		scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+		creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+		gc = gspread.authorize(creds)
+		
+		submitted_data = body['view']['state']['values']
+		
+		# Get submission time
+		submission_time = datetime.now(timezone(timedelta(hours=-7))).strftime('%Y-%m-%d %H:%M:%S')
+		
+		# Extract data from submission
+		team_info = None
+		team_name = None
+		robot_type = None
+		spec_auto = None
+		sample_auto = None
+		spec_tele = None
+		sample_tele = None
+		ascent_level = None
+		contact_info = None
+		notes = None
+		
+		for block_id, block_data in submitted_data.items():
+			for action_id, action_data in block_data.items():
+				if action_id == "team_select_action":
+					team_info = action_data['selected_option']['value']
+					# Get team name from sheet
+					sheet = gc.open("Worlds Scouting Spreadsheet 2025").sheet1
+					teams_data = sheet.get_all_values()
+					for team in teams_data:
+						if team[1] == team_info:  # If team number matches
+							team_name = team[0]   # Get team name
+							break
+				elif action_id == "robot_type_action":
+					robot_type = action_data['selected_option']['value']
+				elif action_id == "spec_auto_action":
+					spec_auto = action_data['selected_option']['value']
+				elif action_id == "sample_auto_action":
+					sample_auto = action_data['selected_option']['value']
+				elif action_id == "spec_tele_action":
+					spec_tele = action_data['selected_option']['value']
+				elif action_id == "sample_tele_action":
+					sample_tele = action_data['selected_option']['value']
+				elif action_id == "ascent_action":
+					ascent_level = action_data['selected_option']['value']
+				elif action_id == "contact_action":
+					contact_info = action_data['value']
+				elif action_id == "notes_action":
+					notes = action_data['value']
 
+		# Open scouting worksheet to append data
+		scouting_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("Scouting")
+		
+		# Append new row with scouting data
+		new_row = [
+			submission_time,  # Timestamp
+			team_info,       # Team Number
+			team_name,       # Team Name
+			robot_type,      # Robot Type
+			spec_auto,       # Specimen Auto
+			sample_auto,     # Sample Auto
+			spec_tele,       # Specimen Teleop
+			sample_tele,     # Sample Teleop
+			ascent_level,    # Ascent Level
+			contact_info,    # Contact Information
+			notes           # Additional Notes
+		]
+		
+		scouting_sheet.append_row(new_row)
+		
+		# Send formatted scouting report
+		client.chat_postMessage(
+			channel="C07QFDDS9QW",  
+			blocks=[
+				{
+					"type": "header",
+					"text": {
+						"type": "plain_text",
+						"text": f"Team Scouted: Team {team_info} - {team_name}"
+					}
+				},
+				{
+					"type": "section",
+					"fields": [
+						{
+							"type": "mrkdwn",
+							"text": f"*Robot Type:* {robot_type}"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"fields": [
+						{
+							"type": "mrkdwn",
+							"text": f"*Specimen Auto:* {spec_auto}\n*Sample Auto:* {sample_auto}"
+						},
+						{
+							"type": "mrkdwn",
+							"text": f"*Specimen Teleop:* {spec_tele}\n*Sample Teleop:* {sample_tele}"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"fields": [
+						{
+							"type": "mrkdwn",
+							"text": f"*Ascent Level:* {ascent_level}"
+						},
+						{
+							"type": "mrkdwn",
+							"text": f"*Contact:* {contact_info}"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": f"*Additional Notes:*\n{notes}"
+					}
+				},
+				{
+					"type": "context",
+					"elements": [
+						{
+							"type": "mrkdwn",
+							"text": f"Submitted at {submission_time}"
+						}
+					]
+				}
+			]
+		)
 
+	except Exception as e:
+		logger.error(f"Error saving scouting data: {str(e)}")
+		client.chat_postMessage(
+			channel="C07QFDDS9QW",
+			text=f"Error saving scouting data: {str(e)}"
+		)
+def get_spec_auto_options():
+	return [
+		{"text": {"type": "plain_text", "text": "None"}, "value": "none"},
+		{"text": {"type": "plain_text", "text": "1+0"}, "value": "1+0"},
+		{"text": {"type": "plain_text", "text": "2+0"}, "value": "2+0"},
+		{"text": {"type": "plain_text", "text": "3+0"}, "value": "3+0"},
+		{"text": {"type": "plain_text", "text": "4+0"}, "value": "4+0"},
+		{"text": {"type": "plain_text", "text": "5+0"}, "value": "5+0"},
+		{"text": {"type": "plain_text", "text": "5+1"}, "value": "5+1"},
+		{"text": {"type": "plain_text", "text": "6+0"}, "value": "6+0"},
+		{"text": {"type": "plain_text", "text": "7+0"}, "value": "7+0"}
+	]
 
+def get_sample_auto_options():
+	return [
+		{"text": {"type": "plain_text", "text": "None"}, "value": "none"},
+		{"text": {"type": "plain_text", "text": "0+1"}, "value": "0+1"},
+		{"text": {"type": "plain_text", "text": "0+2"}, "value": "0+2"},
+		{"text": {"type": "plain_text", "text": "0+3"}, "value": "0+3"},
+		{"text": {"type": "plain_text", "text": "0+4"}, "value": "0+4"},
+		{"text": {"type": "plain_text", "text": "0+5"}, "value": "0+5"},
+		{"text": {"type": "plain_text", "text": "0+6"}, "value": "0+6"},
+		{"text": {"type": "plain_text", "text": "0+7"}, "value": "0+7"},
+		{"text": {"type": "plain_text", "text": "0+8"}, "value": "0+8"}
+	]
+
+def get_tele_options():
+	options = [
+		{"text": {"type": "plain_text", "text": "None"}, "value": "0"}
+	]
+	
+	options.extend([
+		{
+			"text": {"type": "plain_text", "text": str(i)},
+			"value": str(i)
+		}
+		for i in range(1, 21)  # 1-20 inclusive
+	])
+	
+	return options
+
+def scout_modal(trigger_id, client):
+	try:
+		global gc  # Add at top of file with other globals
+		if not gc:
+			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+			creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+			gc = gspread.authorize(creds)
+		
+		# 2. Cache the sheet objects
+		global teams_sheet, scouting_sheet
+		if not teams_sheet:
+			teams_sheet = gc.open("Worlds Scouting Spreadsheet 2025").sheet1
+			scouting_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("Scouting")
+		
+		# 3. Get teams data more efficiently
+		all_teams = teams_sheet.get_all_values()[1:]  # Skip header row
+		
+		# 4. Get scouted teams efficiently 
+		scouted_teams = set()
+		scouted_data = scouting_sheet.get_all_values()[1:] if scouting_sheet.get_all_values() else []
+		scouted_teams = {row[1] for row in scouted_data}  # Use set comprehension
+		
+		# 5. Create options more efficiently
+		team_options = [
+			{
+				"text": {"type": "plain_text", "text": f"{team[1]} - {team[0]}"},
+				"value": str(team[1])
+			}
+			for team in all_teams 
+			if str(team[1]) not in scouted_teams
+		][:100]  # Limit to 100 inline
+
+		# Rest of your modal code...
+		blocks = [
+			{
+				"type": "input", 
+				"block_id": "team_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select a team"},
+					"options": team_options,
+					"action_id": "team_select_action"
+				},
+				"label": {"type": "plain_text", "text": "Select Team"}
+			},
+			{
+				"type": "input",
+				"block_id": "robot_type_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select robot type"},
+					"options": [
+						{"text": {"type": "plain_text", "text": "Specimen"}, "value": "specimen"},
+						{"text": {"type": "plain_text", "text": "Sample"}, "value": "sample"},
+						{"text": {"type": "plain_text", "text": "Both"}, "value": "both"}
+					],
+					"action_id": "robot_type_action"
+				},
+				"label": {"type": "plain_text", "text": "Robot Type"}
+			},
+			{
+				"type": "input",
+				"block_id": "spec_auto_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Specimen Auto"},
+					"options": get_spec_auto_options(),
+					"action_id": "spec_auto_action"
+				},
+				"label": {"type": "plain_text", "text": "Specimen Auto"}
+			},
+			{
+				"type": "input",
+				"block_id": "sample_auto_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Sample Auto"},
+					"options": get_sample_auto_options(),
+					"action_id": "sample_auto_action"
+				},
+				"label": {"type": "plain_text", "text": "Sample Auto"}
+			},
+			{
+				"type": "input",
+				"block_id": "spec_tele_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Specimen Teleop"},
+					"options": get_tele_options(),
+					"action_id": "spec_tele_action"
+				},
+				"label": {"type": "plain_text", "text": "Specimen Teleop"}
+			},
+			{
+				"type": "input",
+				"block_id": "sample_tele_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Sample Teleop"},
+					"options": get_tele_options(),
+					"action_id": "sample_tele_action"
+				},
+				"label": {"type": "plain_text", "text": "Sample Teleop"}
+			},
+			{
+				"type": "input",
+				"block_id": "ascent_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select ascent level"},
+					"options": [
+						{"text": {"type": "plain_text", "text": "None"}, "value": "none"},
+						{"text": {"type": "plain_text", "text": "L1"}, "value": "l1"},
+						{"text": {"type": "plain_text", "text": "L2"}, "value": "l2"},
+						{"text": {"type": "plain_text", "text": "L3"}, "value": "l3"}
+					],
+					"action_id": "ascent_action"
+				},
+				"label": {"type": "plain_text", "text": "Ascent Level"}
+			},
+			{
+				"type": "input",
+				"block_id": "contact_block",
+				"element": {
+					"type": "plain_text_input",
+					"action_id": "contact_action"
+				},
+				"label": {"type": "plain_text", "text": "Contact Information"}
+			},
+			{
+				"type": "input",
+				"block_id": "notes_block",
+				"element": {
+					"type": "plain_text_input",
+					"multiline": True,
+					"action_id": "notes_action"
+				},
+				"label": {"type": "plain_text", "text": "Additional Notes"}
+			}
+		]
+
+		res = client.views_open(
+			trigger_id=trigger_id,
+			view={
+				"type": "modal",
+				"callback_id": "scout-modal-identifier",
+				"title": {"type": "plain_text", "text": "Scout Team"},
+				"submit": {"type": "plain_text", "text": "Submit"},
+				"close": {"type": "plain_text", "text": "Cancel"},
+				"blocks": blocks
+			}
+		)
+		return res
+	except Exception as e:
+		print(f"Error creating scout modal: {str(e)}")
+		raise
+
+@app.options("team_select_action")
+def handle_team_selec_options(ack, body, logger):
+	print("hello")
+	try:
+		# Read teams from CSV file
+		with open('teams.csv', 'r') as file:
+			csv_reader = csv.reader(file)
+			next(csv_reader)  # Skip header row if present
+			teams_data = list(csv_reader)
+		
+		# Format teams for Slack dropdown
+		options = [
+			{
+				"text": {
+					"type": "plain_text",
+					"text": f"{team[1]} - {team[0]}"  # Assuming format: name,number
+				},
+				"value": str(team[1])
+			}
+			for team in teams_data
+		]
+		
+		# Send options back to Slack
+		ack(options = options)
+		logger.info(f"Successfully loaded {len(options)} teams")
+		
+	except Exception as e:
+		logger.error(f"Error in team selection: {str(e)}")
+		ack(options = [{"text": {"type": "plain_text", "text": "Error loading teams"}, "value": "error"}])
 
 @app.command("/ftc")
 def handle_command(ack, body, logger, client):
@@ -155,24 +536,6 @@ def ftc(teamNum):
 	if response.status_code == 200: 
 		print("response : ", response.content) 
 		return response.content
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1206,6 +1569,9 @@ def handle_view_submission(ack, body, logger, client):
 
 
 
+
+
 # Start your app
 if __name__ == "__main__":
-	app.start(port=int(os.environ.get("PORT", 5000)))
+	print("hello")
+	app.start(port=int(os.environ.get("PORT", 80)))
