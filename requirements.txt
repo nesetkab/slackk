@@ -7,7 +7,7 @@ python-dotenv==1.0.0
 requests==2.31.0
 slack_bolt==1.18.0
 slack_sdk==3.30.0
-psycopg2
+psycopg2-binary==2.9.9
 configparser
 gspread==5.12.0
 oauth2client==4.1.3
