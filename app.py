@@ -1930,11 +1930,6 @@ def handle_view_submission(ack, body, logger, client):
 	send_m_update_msg(client, user_info, what_you_did, send_files)
 	
 
-
-
-
-
-# Start your app
 if __name__ == "__main__":
-	print("hello")
-	app.start(port=int(os.environ.get("PORT", 80)))
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host='0.0.0.0', port=port)  # Use flask_app instead of app

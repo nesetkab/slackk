@@ -9,11 +9,16 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Update requirements.txt to use psycopg2-binary
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the rest of the application
 COPY . .
-ENV PORT=8080
 
+# Set environment variables
+ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
+
+# Command to run the application
 CMD exec python app.py
