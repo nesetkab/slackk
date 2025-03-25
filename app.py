@@ -3,19 +3,13 @@ from dotenv import load_dotenv
 env_path = Path('.') / '.env'
 load_dotenv(dotenv_path=env_path)
 
-import json
-import ssl
-import csv
-import os
-import hickle as hkl
+import json, time, ssl, csv, os, hickle as hkl, requests, gspread
 from datetime import datetime, timezone, timedelta
-import requests
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
 from flask import Flask, request
 from gsheet import outreach_upload
 from upload import main
-import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 global gc, teams_sheet, scouting_sheet
@@ -102,33 +96,429 @@ def upload_subdata(client):
 @app.command("/help")
 def handle_command(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	trigger_id = body["trigger_id"]
 	res = client.chat_postMessage(
 		channel="C07QFDDS9QW",
 		text="help"
 	)
+ 
+def fetch_team_stats(team_number):
+	"""Fetch OPR stats for a single team"""
+	query = """
+	query {
+		teamByNumber(number: %s) {
+			name
+			events(season: 2024) {
+				stats {
+					__typename
+					... on TeamEventStats2024 {
+						opr {
+							autoSamplePoints
+							autoSpecimenPoints
+							dcSamplePoints
+							dcSpecimenPoints
+							autoPoints
+							dcPoints
+							totalPointsNp
+							dcParkPointsIndividual
+						}
+					}
+				}
+			}
+		}
+	}
+	""" % team_number
+
+	try:
+		response = requests.post(
+			'https://api.ftcscout.org/graphql',
+			json={'query': query}
+		)
+		data = response.json()
+		return data['data']['teamByNumber']
+	except Exception as e:
+		print(f"Error fetching stats for team {team_number}: {e}")
+		return None
+	
+def get_best_stats(stats_list):
+	try:
+		print(f"Processing stats: {json.dumps(stats_list, indent=2)}")
+		
+		best_stats = {
+			'totalPointsNp': 0,
+			'autoSamplePoints': 0,
+			'autoSpecimenPoints': 0,
+			'autoPoints': 0,
+			'dcSamplePoints': 0,
+			'dcSpecimenPoints': 0,
+			'dcPoints': 0,
+			'dcParkPointsIndividual': 0
+		}
+		
+		for event in stats_list:
+			if event.get('stats') and event['stats'].get('opr'):
+				opr = event['stats']['opr']
+				print(f"Processing OPR data: {json.dumps(opr, indent=2)}")
+				for key in best_stats:
+					if opr.get(key) is not None:
+						best_stats[key] = max(best_stats[key], float(opr[key]))
+		
+		return {key: round(value, 2) for key, value in best_stats.items()}
+		
+	except Exception as e:
+		print(f"Error in get_best_stats: {e}")
+		raise
+
+@app.command("/updateoprs")
+def handle_update_oprs(ack, body, logger, client):
+	try:
+		ack()
+		print("Update OPRs command received")
+
+		# Initialize Google Sheets connection
+		global gc
+		if not gc:
+			print("Initializing Google Sheets connection...")
+			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+			creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+			gc = gspread.authorize(creds)
+
+		# Get sheet
+		print("Opening spreadsheet...")
+		sheet = gc.open("Worlds Scouting Spreadsheet 2025").sheet1
+		all_values = sheet.get_all_values()
+		
+		if not all_values:
+			raise ValueError("Spreadsheet is empty")
+			
+		print(f"Found {len(all_values)} rows in spreadsheet")
+		
+		header_row = ["Name", "Number", "NP OPR", "Auto Sample OPR", "Auto Spec OPR", 
+					 "Auto OPR", "DC Sample OPR", "DC Specimen OPR", "DC OPR", "Ascent"]
+		
+		# Update header row
+		sheet.update('A1:J1', [header_row])
+
+		# Update each team's stats
+		updated_teams = 0
+		errors = []
+		
+		for row_idx, row in enumerate(all_values[1:], start=2):
+			try:
+				team_number = row[1].strip()  # Column B has team numbers
+				if not team_number:
+					continue
+					
+				print(f"Fetching stats for team {team_number}...")
+				
+				stats = fetch_team_stats(team_number)
+				if not stats:
+					errors.append(f"No stats found for team {team_number}")
+					continue
+					
+				if not stats.get('events'):
+					errors.append(f"No events found for team {team_number}")
+					continue
+
+				# Get best stats across all events
+				best_stats = get_best_stats(stats['events'])
+				if not best_stats:
+					errors.append(f"No valid stats for team {team_number}")
+					continue
+				
+				# Create new row with updated stats
+				new_row = [
+					stats['name'],                          # Name
+					team_number,                            # Number
+					best_stats['totalPointsNp'],           # NP OPR
+					best_stats['autoSamplePoints'],        # Auto Sample OPR
+					best_stats['autoSpecimenPoints'],      # Auto Spec OPR
+					best_stats['autoPoints'],              # Auto OPR
+					best_stats['dcSamplePoints'],          # DC Sample OPR
+					best_stats['dcSpecimenPoints'],        # DC Specimen OPR
+					best_stats['dcPoints'],                # DC OPR
+					best_stats['dcParkPointsIndividual']   # Ascent
+				]
+				
+				# Update row in spreadsheet
+				sheet.update(f'A{row_idx}:J{row_idx}', [new_row])
+				updated_teams += 1
+				print(f"Updated team {team_number}")
+				
+				# Sleep briefly to avoid rate limiting
+				time.sleep(1)
+				
+			except Exception as e:
+				error_msg = f"Error processing team {team_number}: {str(e)}"
+				logger.error(error_msg)
+				errors.append(error_msg)
+		
+		# Send confirmation message
+		message = f"Successfully updated OPR stats for {updated_teams} teams!"
+		if errors:
+			message += f"\nEncountered {len(errors)} errors:"
+			for error in errors[:5]:  # Show first 5 errors
+				message += f"\n• {error}"
+			if len(errors) > 5:
+				message += f"\n...and {len(errors) - 5} more errors"
+				
+		client.chat_postMessage(
+			channel=body["channel_id"],
+			text=message
+		)
+		
+	except Exception as e:
+		error_msg = f"Err updating OPRs: {str(e)}"
+		logger.error(error_msg)
+		client.chat_postMessage(
+			channel=body["channel_id"],
+			text=error_msg
+		)
+
+def init_google_sheets():
+	global gc, teams_sheet, scouting_sheet
+	try:
+		if not gc:
+			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+			creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+			gc = gspread.authorize(creds)
+			
+		if not teams_sheet or not scouting_sheet:
+			teams_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("ALL Worlds OPRs")
+			sheet = gc.open("Worlds Scouting Spreadsheet 2025")
+			scouting_sheet = sheet.sheet1
+			
+		return True
+	except Exception as e:
+		print(f"Error initializing Google Sheets: {e}")
+		return False
+		
+		
 
 @app.command("/scout")
 def handle_command(ack, body, logger, client):
-	ack()
-	logger.info(body)
-	trigger_id = body["trigger_id"]
-	print("scout")
-	scout_modal(trigger_id, client)  
-	
+	try:
+		ack()
+		trigger_id = body["trigger_id"]
+		
+		# Show loading modal first
+		loading_response = client.views_open(
+			trigger_id=trigger_id,
+			view={
+				"type": "modal",
+				"callback_id": "loading-modal",
+				"title": {"type": "plain_text", "text": "Loading Teams"},
+				"blocks": [
+					{
+						"type": "section",
+						"text": {
+							"type": "mrkdwn",
+							"text": "Loading available teams...\n_wait patiently >:(_"
+						}
+					}
+				]
+			}
+		)
+		
+		# Get view ID from loading modal
+		view_id = loading_response['view']['id']
+		
+		# Initialize Google Sheets
+		if not init_google_sheets():
+			client.views_update(
+				view_id=view_id,
+				view={
+					"type": "modal",
+					"title": {"type": "plain_text", "text": "Error"},
+					"blocks": [
+						{
+							"type": "section",
+							"text": {
+								"type": "mrkdwn",
+								"text": "Could not connect to Google Sheets"
+							}
+						}
+					]
+				}
+			)
+			return
+			
+		# Now load the actual scout modal
+		try:
+			# Get team data
+			all_teams = teams_sheet.get_all_values()[1:]  # Skip header
+			scouted_data = scouting_sheet.get_all_values()[1:] if scouting_sheet.get_all_values() else []
+			scouted_teams = {row[1] for row in scouted_data}
+			
+			# Create team options
+			team_options = [
+				{
+					"text": {"type": "plain_text", "text": f"{team[1]} - {team[0]}"},
+					"value": str(team[1])
+				}
+				for team in all_teams 
+				if str(team[1]) not in scouted_teams
+			][:100]  # Slack's 100 option limit
+			
+			# Update the loading modal with the scout modal
+			client.views_update(
+				view_id=view_id,
+				view={
+					"type": "modal",
+					"callback_id": "scout-modal-identifier",
+					"title": {"type": "plain_text", "text": "Scout Team"},
+					"submit": {"type": "plain_text", "text": "Submit"},
+					"close": {"type": "plain_text", "text": "Cancel"},
+					"blocks": [
+			{
+				"type": "input", 
+				"block_id": "team_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select a team"},
+					"options": team_options,
+					"action_id": "team_select_action"
+				},
+				"label": {"type": "plain_text", "text": "Select Team"}
+			},
+			{
+				"type": "input",
+				"block_id": "robot_type_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select robot type"},
+					"options": [
+						{"text": {"type": "plain_text", "text": "Specimen"}, "value": "specimen"},
+						{"text": {"type": "plain_text", "text": "Sample"}, "value": "sample"},
+						{"text": {"type": "plain_text", "text": "Both"}, "value": "both"}
+					],
+					"action_id": "robot_type_action"
+				},
+				"label": {"type": "plain_text", "text": "Robot Type"}
+			},
+			{
+				"type": "input",
+				"block_id": "spec_auto_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Specimen Auto"},
+					"options": get_spec_auto_options(),
+					"action_id": "spec_auto_action"
+				},
+				"label": {"type": "plain_text", "text": "Specimen Auto"}
+			},
+			{
+				"type": "input",
+				"block_id": "sample_auto_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Sample Auto"},
+					"options": get_sample_auto_options(),
+					"action_id": "sample_auto_action"
+				},
+				"label": {"type": "plain_text", "text": "Sample Auto"}
+			},
+			{
+				"type": "input",
+				"block_id": "spec_tele_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Specimen Teleop"},
+					"options": get_tele_options(),
+					"action_id": "spec_tele_action"
+				},
+				"label": {"type": "plain_text", "text": "Specimen Teleop"}
+			},
+			{
+				"type": "input",
+				"block_id": "sample_tele_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select Sample Teleop"},
+					"options": get_tele_options(),
+					"action_id": "sample_tele_action"
+				},
+				"label": {"type": "plain_text", "text": "Sample Teleop"}
+			},
+			{
+				"type": "input",
+				"block_id": "ascent_block",
+				"element": {
+					"type": "static_select",
+					"placeholder": {"type": "plain_text", "text": "Select ascent level"},
+					"options": [
+						{"text": {"type": "plain_text", "text": "None"}, "value": "none"},
+						{"text": {"type": "plain_text", "text": "L1"}, "value": "l1"},
+						{"text": {"type": "plain_text", "text": "L2"}, "value": "l2"},
+						{"text": {"type": "plain_text", "text": "L3"}, "value": "l3"}
+					],
+					"action_id": "ascent_action"
+				},
+				"label": {"type": "plain_text", "text": "Ascent Level"}
+			},
+			{
+				"type": "input",
+				"block_id": "contact_block",
+				"element": {
+					"type": "plain_text_input",
+					"action_id": "contact_action"
+				},
+				"label": {"type": "plain_text", "text": "Contact Information"}
+			},
+			{
+				"type": "input",
+				"block_id": "notes_block",
+				"element": {
+					"type": "plain_text_input",
+					"multiline": True,
+					"action_id": "notes_action"
+				},
+				"label": {"type": "plain_text", "text": "Additional Notes"}
+			}
+					]
+				}
+			)
+			
+		except Exception as modal_error:
+			logger.error(f"Failed to load teams: {str(modal_error)}")
+			client.views_update(
+				view_id=view_id,
+				view={
+					"type": "modal",
+					"title": {"type": "plain_text", "text": "Error"},
+					"blocks": [
+						{
+							"type": "section",
+							"text": {
+								"type": "mrkdwn", 
+								"text": f"Err loading teams: {str(modal_error)}"
+							}
+						}
+					]
+				}
+			)
+			raise
+		
+	except Exception as e:
+		logger.error(f"Error handling scout command: {str(e)}")
+		client.chat_postMessage(
+			channel=body["channel_id"],
+			text=f"Error: {str(e)}"
+		)
+
 @app.view("scout-modal-identifier")
 def handle_scout_submission(ack, body, logger, client):
 	try:
 		ack()
-		# Set up Google Sheets connection
-		scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-		creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-		gc = gspread.authorize(creds)
+		print("Processing scout submission...")
 		
+		# Initialize Google Sheets connection
+		if not init_google_sheets():
+			raise Exception("Failed to initialize Google Sheets")
+		
+		# Extract submitted data
 		submitted_data = body['view']['state']['values']
-		
-		# Get submission time
 		submission_time = datetime.now(timezone(timedelta(hours=-7))).strftime('%Y-%m-%d %H:%M:%S')
 		
 		# Extract data from submission
@@ -143,16 +533,15 @@ def handle_scout_submission(ack, body, logger, client):
 		contact_info = None
 		notes = None
 		
+		# Parse submitted data
 		for block_id, block_data in submitted_data.items():
 			for action_id, action_data in block_data.items():
 				if action_id == "team_select_action":
 					team_info = action_data['selected_option']['value']
-					# Get team name from sheet
-					sheet = gc.open("Worlds Scouting Spreadsheet 2025").sheet1
-					teams_data = sheet.get_all_values()
-					for team in teams_data:
-						if team[1] == team_info:  # If team number matches
-							team_name = team[0]   # Get team name
+					# Get team name
+					for team in teams_sheet.get_all_values():
+						if team[1] == team_info:
+							team_name = team[0]
 							break
 				elif action_id == "robot_type_action":
 					robot_type = action_data['selected_option']['value']
@@ -170,98 +559,83 @@ def handle_scout_submission(ack, body, logger, client):
 					contact_info = action_data['value']
 				elif action_id == "notes_action":
 					notes = action_data['value']
+     
+		user_id = body['user']['id']
+		user_response = client.users_info(user=user_id)
+		if user_response['ok']:
+			submitting_user = user_response['user']['real_name']
 
-		# Open scouting worksheet to append data
-		scouting_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("Scouting")
-		
-		# Append new row with scouting data
+		# Create new row data
 		new_row = [
-			submission_time,  # Timestamp
-			team_info,       # Team Number
-			team_name,       # Team Name
-			robot_type,      # Robot Type
-			spec_auto,       # Specimen Auto
-			sample_auto,     # Sample Auto
-			spec_tele,       # Specimen Teleop
-			sample_tele,     # Sample Teleop
-			ascent_level,    # Ascent Level
-			contact_info,    # Contact Information
-			notes           # Additional Notes
+			submitting_user,  # A: person responsible
+			team_info,       # B: Team Number
+			team_name,       # C: Team Name
+			robot_type,      # D: Robot Type
+			spec_auto,       # E: Specimen Auto
+			sample_auto,     # F: Sample Auto
+			spec_tele,       # G: Specimen Teleop
+			sample_tele,     # H: Sample Teleop
+			ascent_level,    # I: Ascent Level
+			contact_info,    # J: Contact Information
+			notes           # K: Additional Notes
 		]
 		
+		# print(new_row)
+		# Append to scouting sheet
+		print(f"Appending data for team {team_info} to sheet...")
 		scouting_sheet.append_row(new_row)
+		print("Successfully added scout data to sheet")
 		
-		# Send formatted scouting report
+		# Send confirmation message
+		
+		fallback_text = f"New scouted Team {team_info} - {team_name}"
 		client.chat_postMessage(
-			channel="C07QFDDS9QW",  
+			channel="C07QFDDS9QW",
+			text=fallback_text,
 			blocks=[
 				{
 					"type": "header",
 					"text": {
 						"type": "plain_text",
-						"text": f"Team Scouted: Team {team_info} - {team_name}"
+						"text": f"Team Scouted: {team_info} - {team_name}"
 					}
 				},
 				{
 					"type": "section",
 					"fields": [
-						{
-							"type": "mrkdwn",
-							"text": f"*Robot Type:* {robot_type}"
-						}
+						{"type": "mrkdwn", "text": f"*Robot Type:* {robot_type}"}
 					]
 				},
 				{
 					"type": "section",
 					"fields": [
-						{
-							"type": "mrkdwn",
-							"text": f"*Specimen Auto:* {spec_auto}\n*Sample Auto:* {sample_auto}"
-						},
-						{
-							"type": "mrkdwn",
-							"text": f"*Specimen Teleop:* {spec_tele}\n*Sample Teleop:* {sample_tele}"
-						}
+						{"type": "mrkdwn", "text": f"*Auto:*\nSpecimen: {spec_auto}\nSample: {sample_auto}"},
+						{"type": "mrkdwn", "text": f"*Teleop:*\nSpecimen: {spec_tele}\nSample: {sample_tele}"}
 					]
 				},
 				{
 					"type": "section",
 					"fields": [
-						{
-							"type": "mrkdwn",
-							"text": f"*Ascent Level:* {ascent_level}"
-						},
-						{
-							"type": "mrkdwn",
-							"text": f"*Contact:* {contact_info}"
-						}
+						{"type": "mrkdwn", "text": f"*Ascent:* {ascent_level}"},
+						{"type": "mrkdwn", "text": f"*Contact:* {contact_info}"}
 					]
 				},
 				{
 					"type": "section",
-					"text": {
-						"type": "mrkdwn",
-						"text": f"*Additional Notes:*\n{notes}"
-					}
-				},
-				{
-					"type": "context",
-					"elements": [
-						{
-							"type": "mrkdwn",
-							"text": f"Submitted at {submission_time}"
-						}
-					]
+					"text": {"type": "mrkdwn", "text": f"*Notes:*\n{notes}"}
 				}
 			]
 		)
 
 	except Exception as e:
-		logger.error(f"Error saving scouting data: {str(e)}")
+		error_msg = f"Error saving scout data: {str(e)}"
+		logger.error(error_msg)
 		client.chat_postMessage(
 			channel="C07QFDDS9QW",
-			text=f"Error saving scouting data: {str(e)}"
+			text=error_msg
 		)
+		raise
+
 def get_spec_auto_options():
 	return [
 		{"text": {"type": "plain_text", "text": "None"}, "value": "none"},
@@ -305,27 +679,12 @@ def get_tele_options():
 
 def scout_modal(trigger_id, client):
 	try:
-		global gc  # Add at top of file with other globals
-		if not gc:
-			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-			creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-			gc = gspread.authorize(creds)
-		
-		# 2. Cache the sheet objects
-		global teams_sheet, scouting_sheet
-		if not teams_sheet:
-			teams_sheet = gc.open("Worlds Scouting Spreadsheet 2025").sheet1
-			scouting_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("Scouting")
-		
-		# 3. Get teams data more efficiently
-		all_teams = teams_sheet.get_all_values()[1:]  # Skip header row
-		
-		# 4. Get scouted teams efficiently 
-		scouted_teams = set()
+		# Get teams and filter out scouted ones
+		all_teams = teams_sheet.get_all_values()[1:]  # Skip header
 		scouted_data = scouting_sheet.get_all_values()[1:] if scouting_sheet.get_all_values() else []
-		scouted_teams = {row[1] for row in scouted_data}  # Use set comprehension
+		scouted_teams = {row[1] for row in scouted_data}
 		
-		# 5. Create options more efficiently
+		# Create team options
 		team_options = [
 			{
 				"text": {"type": "plain_text", "text": f"{team[1]} - {team[0]}"},
@@ -333,7 +692,9 @@ def scout_modal(trigger_id, client):
 			}
 			for team in all_teams 
 			if str(team[1]) not in scouted_teams
-		][:100]  # Limit to 100 inline
+		][:100]  # Slack's 100 option limit
+		
+		print(f"Found {len(team_options)} available teams")
 
 		# Rest of your modal code...
 		blocks = [
@@ -443,7 +804,9 @@ def scout_modal(trigger_id, client):
 				"label": {"type": "plain_text", "text": "Additional Notes"}
 			}
 		]
-
+  
+		# print(blocks)
+  
 		res = client.views_open(
 			trigger_id=trigger_id,
 			view={
@@ -455,101 +818,136 @@ def scout_modal(trigger_id, client):
 				"blocks": blocks
 			}
 		)
+
 		return res
 	except Exception as e:
 		print(f"Error creating scout modal: {str(e)}")
 		raise
 
-@app.options("team_select_action")
-def handle_team_selec_options(ack, body, logger):
-	print("hello")
-	try:
-		# Read teams from CSV file
-		with open('teams.csv', 'r') as file:
-			csv_reader = csv.reader(file)
-			next(csv_reader)  # Skip header row if present
-			teams_data = list(csv_reader)
-		
-		# Format teams for Slack dropdown
-		options = [
-			{
-				"text": {
-					"type": "plain_text",
-					"text": f"{team[1]} - {team[0]}"  # Assuming format: name,number
-				},
-				"value": str(team[1])
-			}
-			for team in teams_data
-		]
-		
-		# Send options back to Slack
-		ack(options = options)
-		logger.info(f"Successfully loaded {len(options)} teams")
-		
-	except Exception as e:
-		logger.error(f"Error in team selection: {str(e)}")
-		ack(options = [{"text": {"type": "plain_text", "text": "Error loading teams"}, "value": "error"}])
+def ftc(teamNum):
+    url = "https://api.ftcscout.org/graphql"
+    body = """
+    query {
+        teamByNumber(number: %s) {
+            name
+            schoolName
+            location {
+                city, state, country
+            }
+            rookieYear
+            quickStats(season:2024) {
+                tot {
+                  value
+                  rank
+                }
+            }
+        }
+    }
+    """ % teamNum
+    
+    response = requests.post(url=url, json={"query": body})
+    if response.status_code == 200:
+        return json.loads(response.content)
+    return None
 
 @app.command("/ftc")
 def handle_command(ack, body, logger, client):
-	ack()
-	logger.info(body)
-	trigger_id = body["trigger_id"]
-	toa = ftc(body["text"])
-	res = client.chat_postMessage(
-		channel=body["channel_id"],
-		blocks = [
-			{
-			"type": "header",
-			"text": {
-				"type": "plain_text",
-				"text": "Team Info: Team " + str(body["text"])
-			}
-			},
-			{
-			"type": "section",
-			"text": {
-				"type": "mrkdwn",
-				"text": "*Team Name:*\n" + toa["data"]["teamByNumber"]["name"]
-			}
-			}
-		]
-	)
+    ack()
+    trigger_id = body["trigger_id"]
+    team_data = ftc(body["text"])
+    
+    if team_data and team_data.get("data") and team_data["data"].get("teamByNumber"):
+        team = team_data["data"]["teamByNumber"]
+        location = team.get("location", {})
+        quick_stats = team.get("quickStats", {}).get("tot", {})
+        
+        res = client.chat_postMessage(
+            channel=body["channel_id"],
+            text=f"Team Info: Team {body['text']}",  # Fallback text
+            blocks=[
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"Team Info: Team {body['text']}"
+                    }
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Team Name:*\n{team['name']}"
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*School:*\n{team.get('schoolName', 'N/A')}"
+                        }
+                    ]
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Location:*\n{location.get('city', 'N/A')}, {location.get('state', 'N/A')}, {location.get('country', 'N/A')}"
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Rookie Year:*\n{team.get('rookieYear', 'N/A')}"
+                        }
+                    ]
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*OPR:*\n{round(quick_stats.get('value', 0), 2)}"
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Rank:*\n#{quick_stats.get('rank', 'N/A')}"
+                        }
+                    ]
+                }
+            ]
+        )
+    else:
+        client.chat_postMessage(
+            channel=body["channel_id"],
+            text=f"Could not find data for team {body['text']}"
+        )
 
-def ftc(teamNum):
-	url = "https://api.ftcscout.org/graphql"
-	body = """
-	query {
-  		teamByNumber(number: """ + str(teamNum) + """) {
-			name
-			schoolName
-			location {
-	  			city, state, country
-			}
-			rookieYear
-   			website
-  		}
-	}
-	"""
-	response = requests.post(url=url, json={"query": body}) 
-	print("response status code: ", response.status_code) 
-	if response.status_code == 200: 
-		print("response : ", response.content) 
-		return response.content
 
 
 
 
 
-#	   #########      ####				####
-#	 ############     ####				####
-#	###        ###    ####				####
-#	###        ###    ####				####
-#	##############    ####				####
-#   ##############    ####				####
-#   ###        ###    ####				####
-#   ###        ###    ##############    ##############
-#   ###        ###    ##############    ##############
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#	 #########     ####			####
+#	###     ###    ####			####
+#   ###########    ####			####
+#   ###     ###    ####	      	####
+#   ###     ###    #########    ##########
 
 def open_modal(trigger_id, client):
 	res = client.views_open(
@@ -1133,14 +1531,14 @@ def outreach_modal(trigger_id, client):
 @app.command("/en")
 def handle_command(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	trigger_id = body["trigger_id"]
 	open_modal(trigger_id, client)
 
 @app.command("/outreach")
 def handle_command(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	trigger_id = body["trigger_id"]
 	outreach_modal(trigger_id, client)
 
@@ -1148,14 +1546,14 @@ def handle_command(ack, body, logger, client):
 @app.action("category_action_id")
 def handle_some_action(ack, body, logger):
 	ack()
-	logger.info(body)
+	print(body)
  
 
 
 @app.view("modal-identifier")
 def handle_view_submission_events(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	trigger_id = body["trigger_id"]
 	submitted_data = body['view']['state']['values']
 	global new_prog_cat_made
@@ -1180,7 +1578,7 @@ def handle_view_submission_events(ack, body, logger, client):
 @app.view("outreach-modal-identifier")
 def handle_view_submission(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	user_id = body['user']['id']
 	submitted_data = body['view']['state']['values']
 	print(submitted_data)
@@ -1231,7 +1629,7 @@ def handle_view_submission(ack, body, logger, client):
 @app.view("prog-categories-identifier")
 def handle_view_submission(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	trigger_id = body["trigger_id"]
 	global p_category
 	submitted_data = body['view']['state']['values']
@@ -1245,42 +1643,17 @@ def handle_view_submission(ack, body, logger, client):
 @app.action("p_button")
 def handle_some_action(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	view_id = body["view"]["id"]
 	global new_prog_cat_made
 	new_prog_cat_made = True
 	#new_prog_category(view_id, client)
 
-'''
-@app.view("n_prog_cat_identifier")
-def handle_view_submission(ack, body, logger, client):
-	ack()
-	logger.info(body)
-	trigger_id = body["trigger_id"]
-	submitted_data = body['view']['state']['values']
-	for block_id, block_data in submitted_data.items():
-		for action_id, action_data in block_data.items():
-			if action_data['type'] == 'plain_text_input':
-				new_cat = action_data['value']
-	prog_options = hkl.load('prog_cat')
-	new_value = new_cat.lower()
-	new_label = new_cat.capitalize()
-	new_append = {
-					"value": new_value,
-					"text": {
-						"type": "plain_text",
-						"text": new_label
-					}
-				}
-	prog_options.append(new_append)
-	hkl.dump(prog_options, 'prog_cat')
-	prog_categories(trigger_id, client)
-'''
 # Entry
 @app.view("prog-modal-identifier")
 def handle_view_submission(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	#print(body)
 	user_id = body['user']['id']
 	submitted_data = body['view']['state']['values']
@@ -1403,7 +1776,7 @@ def handle_view_submission(ack, body, logger, client):
 @app.view("mech-categories-identifier")
 def handle_view_submission(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	trigger_id = body["trigger_id"]
 	global m_category
 	submitted_data = body['view']['state']['values']
@@ -1417,7 +1790,7 @@ def handle_view_submission(ack, body, logger, client):
 @app.action("m_button")
 def handle_some_action(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	view_id = body["view"]["id"]
 	global new_mech_cat_made
 	new_mech_cat_made = True
@@ -1428,7 +1801,7 @@ def handle_some_action(ack, body, logger, client):
 @app.view("n_mech_cat_identifier")
 def handle_view_submission(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	trigger_id = body["trigger_id"]
 	submitted_data = body['view']['state']['values']
 	for block_id, block_data in submitted_data.items():
@@ -1454,7 +1827,7 @@ def handle_view_submission(ack, body, logger, client):
 @app.view("mech-modal-identifier")
 def handle_view_submission(ack, body, logger, client):
 	ack()
-	logger.info(body)
+	print(body)
 	user_id = body['user']['id']
 	submitted_data = body['view']['state']['values']
 	
@@ -1541,16 +1914,6 @@ def handle_view_submission(ack, body, logger, client):
 			return obj
 	
 	submission_data = convert_sets_to_lists(submission_data)
-	#existing_data = []
-
-	#if os.path.exists("submission_data.json"):
-	#	with open('submission_data.json', 'r') as json_file:
-	#		existing_data.clear()
-	#		existing_data.append(json.load(json_file))
-	#else: 
-	#	existing_data = []
-	
-	#existing_data.append(submission_data)
 
 	#write data to json file
 	with open('submission_data.json', 'w') as json_file:
