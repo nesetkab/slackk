@@ -29,13 +29,14 @@ app = App(
 handler = SlackRequestHandler(app)
 m_category = "default"
 p_category = "deafult"
+
 @flask_app.route("/slack/events", methods=["POST"])
 def slack_events():
 	return handler.handle(request)
 
-@flask_app.route('/')
-def hello():
-	return 'Hello, World!'
+@flask_app.route('/', methods=['POST'])
+def health():
+    return "OK", 200
 
 # SEND MESSAGES
 def send_confirm_msg(client):
@@ -1929,7 +1930,7 @@ def handle_view_submission(ack, body, logger, client):
 	send_confirm_msg(client)
 	send_m_update_msg(client, user_info, what_you_did, send_files)
 	
-
+application = flask_app
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    flask_app.run(host='0.0.0.0', port=port)  # Use flask_app instead of app
+    flask_app.run(host='0.0.0.0', port=port, debug=True)
