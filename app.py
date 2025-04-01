@@ -182,7 +182,8 @@ def handle_update_oprs(ack, body, logger, client):
 		if not gc:
 			print("Initializing Google Sheets connection...")
 			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-			creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+			creds_path = os.path.join("/secrets", "credentials.json")
+			creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
 			gc = gspread.authorize(creds)
 
 		# Get sheet
@@ -282,7 +283,8 @@ def init_google_sheets():
 	try:
 		if not gc:
 			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-			creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+			creds_path = os.path.join("/secrets", "credentials.json")
+			creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
 			gc = gspread.authorize(creds)
 			
 		if not teams_sheet or not scouting_sheet:
