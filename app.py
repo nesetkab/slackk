@@ -36,7 +36,7 @@ def slack_events():
 
 @flask_app.route('/', methods=['POST'])
 def health():
-    return "OK", 200
+	return "OK", 200
 
 # SEND MESSAGES
 def send_confirm_msg(client):
@@ -182,9 +182,13 @@ def handle_update_oprs(ack, body, logger, client):
 		if not gc:
 			print("Initializing Google Sheets connection...")
 			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-			creds_path = os.path.join("/secrets", "credentials.json")
-			creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-			gc = gspread.authorize(creds)
+
+			creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+			if creds_json:
+				creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), scope)
+				gc = gspread.authorize(creds)
+			else:
+				raise FileNotFoundError("Google credentials not found in environment variables")
 
 		# Get sheet
 		print("Opening spreadsheet...")
@@ -249,7 +253,7 @@ def handle_update_oprs(ack, body, logger, client):
 				print(f"Updated team {team_number}")
 				
 				# Sleep briefly to avoid rate limiting
-				time.sleep(1)
+				time.sleep(0.2)
 				
 			except Exception as e:
 				error_msg = f"Error processing team {team_number}: {str(e)}"
@@ -282,13 +286,19 @@ def init_google_sheets():
 	global gc, teams_sheet, scouting_sheet
 	try:
 		if not gc:
+			print("Initializing Google Sheets connection...")
 			scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-			creds_path = os.path.join("/secrets", "credentials.json")
-			creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-			gc = gspread.authorize(creds)
+
+			creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+			if creds_json:
+				creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), scope)
+				gc = gspread.authorize(creds)
+			else:
+				raise FileNotFoundError("Google credentials not found in environment variables")
 			
 		if not teams_sheet or not scouting_sheet:
-			teams_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("ALL Worlds OPRs")
+			teams_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("FRANKLIN OPRs")
+			franklin_sheet = gc.open("Worlds Scouting Spreadsheet 2025").worksheet("FRANKLIN OPRs")
 			sheet = gc.open("Worlds Scouting Spreadsheet 2025")
 			scouting_sheet = sheet.sheet1
 			
@@ -562,7 +572,7 @@ def handle_scout_submission(ack, body, logger, client):
 					contact_info = action_data['value']
 				elif action_id == "notes_action":
 					notes = action_data['value']
-     
+	 
 		user_id = body['user']['id']
 		user_response = client.users_info(user=user_id)
 		if user_response['ok']:
@@ -828,99 +838,99 @@ def scout_modal(trigger_id, client):
 		raise
 
 def ftc(teamNum):
-    url = "https://api.ftcscout.org/graphql"
-    body = """
-    query {
-        teamByNumber(number: %s) {
-            name
-            schoolName
-            location {
-                city, state, country
-            }
-            rookieYear
-            quickStats(season:2024) {
-                tot {
-                  value
-                  rank
-                }
-            }
-        }
-    }
-    """ % teamNum
-    
-    response = requests.post(url=url, json={"query": body})
-    if response.status_code == 200:
-        return json.loads(response.content)
-    return None
+	url = "https://api.ftcscout.org/graphql"
+	body = """
+	query {
+		teamByNumber(number: %s) {
+			name
+			schoolName
+			location {
+				city, state, country
+			}
+			rookieYear
+			quickStats(season:2024) {
+				tot {
+				  value
+				  rank
+				}
+			}
+		}
+	}
+	""" % teamNum
+	
+	response = requests.post(url=url, json={"query": body})
+	if response.status_code == 200:
+		return json.loads(response.content)
+	return None
 
 @app.command("/ftc")
 def handle_command(ack, body, logger, client):
-    ack()
-    trigger_id = body["trigger_id"]
-    team_data = ftc(body["text"])
-    
-    if team_data and team_data.get("data") and team_data["data"].get("teamByNumber"):
-        team = team_data["data"]["teamByNumber"]
-        location = team.get("location", {})
-        quick_stats = team.get("quickStats", {}).get("tot", {})
-        
-        res = client.chat_postMessage(
-            channel=body["channel_id"],
-            text=f"Team Info: Team {body['text']}",  # Fallback text
-            blocks=[
-                {
-                    "type": "header",
-                    "text": {
-                        "type": "plain_text",
-                        "text": f"Team Info: Team {body['text']}"
-                    }
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Team Name:*\n{team['name']}"
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*School:*\n{team.get('schoolName', 'N/A')}"
-                        }
-                    ]
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Location:*\n{location.get('city', 'N/A')}, {location.get('state', 'N/A')}, {location.get('country', 'N/A')}"
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Rookie Year:*\n{team.get('rookieYear', 'N/A')}"
-                        }
-                    ]
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*OPR:*\n{round(quick_stats.get('value', 0), 2)}"
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Rank:*\n#{quick_stats.get('rank', 'N/A')}"
-                        }
-                    ]
-                }
-            ]
-        )
-    else:
-        client.chat_postMessage(
-            channel=body["channel_id"],
-            text=f"Could not find data for team {body['text']}"
-        )
+	ack()
+	trigger_id = body["trigger_id"]
+	team_data = ftc(body["text"])
+	
+	if team_data and team_data.get("data") and team_data["data"].get("teamByNumber"):
+		team = team_data["data"]["teamByNumber"]
+		location = team.get("location", {})
+		quick_stats = team.get("quickStats", {}).get("tot", {})
+		
+		res = client.chat_postMessage(
+			channel=body["channel_id"],
+			text=f"Team Info: Team {body['text']}",  # Fallback text
+			blocks=[
+				{
+					"type": "header",
+					"text": {
+						"type": "plain_text",
+						"text": f"Team Info: Team {body['text']}"
+					}
+				},
+				{
+					"type": "section",
+					"fields": [
+						{
+							"type": "mrkdwn",
+							"text": f"*Team Name:*\n{team['name']}"
+						},
+						{
+							"type": "mrkdwn",
+							"text": f"*School:*\n{team.get('schoolName', 'N/A')}"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"fields": [
+						{
+							"type": "mrkdwn",
+							"text": f"*Location:*\n{location.get('city', 'N/A')}, {location.get('state', 'N/A')}, {location.get('country', 'N/A')}"
+						},
+						{
+							"type": "mrkdwn",
+							"text": f"*Rookie Year:*\n{team.get('rookieYear', 'N/A')}"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"fields": [
+						{
+							"type": "mrkdwn",
+							"text": f"*OPR:*\n{round(quick_stats.get('value', 0), 2)}"
+						},
+						{
+							"type": "mrkdwn",
+							"text": f"*Rank:*\n#{quick_stats.get('rank', 'N/A')}"
+						}
+					]
+				}
+			]
+		)
+	else:
+		client.chat_postMessage(
+			channel=body["channel_id"],
+			text=f"Could not find data for team {body['text']}"
+		)
 
 
 
@@ -1934,5 +1944,5 @@ def handle_view_submission(ack, body, logger, client):
 	
 application = flask_app
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    flask_app.run(host='0.0.0.0', port=port, debug=True)
+	port = int(os.environ.get("PORT", 8080))
+	flask_app.run(host='0.0.0.0', port=port, debug=True)
