@@ -1152,45 +1152,6 @@ def mech_categories(trigger_id, client):
     return res
 
 
-# OLD CODE, CATS ARE HARDCODED NOW !!!
-"""
-def new_mech_category(view_id, client):
-	res = client.views_update(
-		view_id=view_id,
-	view={
-		"type": "modal",
-		"callback_id": "n_mech_cat_identifier",
-		"submit": {
-			"type": "plain_text",
-			"text": "Next"
-		},
-		"close": {
-			"type": "plain_text",
-			"text": "Cancel"
-		},
-		"title": {
-			"type": "plain_text",
-			"text": "Create New Entry"
-		},
-		"blocks": [ 
-			{
-				"type": "input",
-				"element": {
-					"type": "plain_text_input",
-					"action_id": "plain_text_input-action"
-				},
-				"label": {
-					"type": "plain_text",
-					"text": "Enter New Category Below:"
-				}
-			}
-		]
-	}
-	)
-	return res
-"""
-
-
 def mech_modal(trigger_id, client):
     res = client.views_open(
         trigger_id=trigger_id,
