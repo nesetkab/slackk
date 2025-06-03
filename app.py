@@ -17,6 +17,8 @@ app = App(
 )
 handler = SlackRequestHandler(app)
 
+application = flask_app
+
 # Import and register handlers
 from slack_commands import register_commands
 from slack_events import register_events
