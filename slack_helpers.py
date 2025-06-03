@@ -106,9 +106,114 @@ def open_new_entry_modal(trigger_id, client):
     )
 
 
-# ... (other modal opening functions like open_mech_categories, open_prog_categories, etc. would go here)
-# For brevity, I am not including the full code for all modal functions, but they would follow the same pattern as open_new_entry_modal.
-# The logic for these functions can be copied from the original app.py.
+def open_mech_categories(trigger_id, client):
+    """Opens the modal for selecting a mechanical category."""
+    client.views_open(
+        trigger_id=trigger_id,
+        view={
+            "type": "modal",
+            "callback_id": "mech-categories-identifier",
+            "submit": {"type": "plain_text", "text": "Next"},
+            "close": {"type": "plain_text", "text": "Cancel"},
+            "title": {"type": "plain_text", "text": "Create New Entry"},
+            "blocks": [
+                {
+                    "type": "input",
+                    "element": {
+                        "type": "static_select",
+                        "placeholder": {"type": "plain_text", "text": "Select an item"},
+                        "options": [
+                            {
+                                "value": "drivetrain",
+                                "text": {"type": "plain_text", "text": "Drivetrain"},
+                            },
+                            {
+                                "value": "intake",
+                                "text": {"type": "plain_text", "text": "Intake"},
+                            },
+                        ],
+                        "action_id": "static_select-action",
+                    },
+                    "label": {"type": "plain_text", "text": "Choose a category:"},
+                },
+            ],
+        },
+    )
+
+
+def open_prog_categories(trigger_id, client):
+    """Opens the modal for selecting a programming category."""
+    client.views_open(
+        trigger_id=trigger_id,
+        view={
+            "type": "modal",
+            "callback_id": "prog-categories-identifier",
+            "submit": {"type": "plain_text", "text": "Next"},
+            "close": {"type": "plain_text", "text": "Cancel"},
+            "title": {"type": "plain_text", "text": "Create New Entry"},
+            "blocks": [
+                {
+                    "type": "input",
+                    "element": {
+                        "type": "static_select",
+                        "placeholder": {"type": "plain_text", "text": "Select an item"},
+                        "options": [
+                            {
+                                "value": "limelight",
+                                "text": {"type": "plain_text", "text": "Limelight"},
+                            },
+                            {
+                                "value": "roadrunner",
+                                "text": {"type": "plain_text", "text": "Roadrunner"},
+                            },
+                            {
+                                "value": "autonomous",
+                                "text": {"type": "plain_text", "text": "Autonomous"},
+                            },
+                        ],
+                        "action_id": "static_select-action",
+                    },
+                    "label": {"type": "plain_text", "text": "Choose a category:"},
+                },
+            ],
+        },
+    )
+
+
+def open_mech_modal(trigger_id, client, category):
+    """Opens the modal for a mechanical entry."""
+    client.views_open(
+        trigger_id=trigger_id,
+        view={
+            "type": "modal",
+            "callback_id": "mech-modal-identifier",
+            "private_metadata": category,
+            "submit": {"type": "plain_text", "text": "Submit"},
+            "close": {"type": "plain_text", "text": "Cancel"},
+            "title": {"type": "plain_text", "text": "Create New Entry"},
+            "blocks": [
+                # ... (blocks for mech_modal)
+            ],
+        },
+    )
+
+
+def open_prog_modal(trigger_id, client, category):
+    """Opens the modal for a programming entry."""
+    client.views_open(
+        trigger_id=trigger_id,
+        view={
+            "type": "modal",
+            "callback_id": "prog-modal-identifier",
+            "private_metadata": category,
+            "submit": {"type": "plain_text", "text": "Submit"},
+            "close": {"type": "plain_text", "text": "Cancel"},
+            "title": {"type": "plain_text", "text": "Create New Entry"},
+            "blocks": [
+                # ... (blocks for prog_modal)
+            ],
+        },
+    )
 
 
 def open_outreach_modal(trigger_id, client):
@@ -133,8 +238,6 @@ def open_scout_modal(trigger_id, client, logger):
 
 
 # --- Command Logic Functions ---
-
-
 def update_oprs_and_notify(body, logger, client):
     """Fetches and updates OPRs, then notifies the channel."""
     try:
