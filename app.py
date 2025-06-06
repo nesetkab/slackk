@@ -30,13 +30,11 @@ register_events(app)
 # Flask routes
 @flask_app.route("/slack/events", methods=["POST"])
 def slack_events_handler():
-    """Handles incoming Slack events."""
     return handler.handle(request)
 
 
 @flask_app.route("/", methods=["POST", "GET"])
 def health_check():
-    """A simple health check endpoint."""
     return "OK", 200
 
 

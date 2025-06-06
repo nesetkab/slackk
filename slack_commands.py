@@ -8,15 +8,11 @@ from slack_helpers import (
 
 
 def register_commands(app):
-    """
-    Registers all Slack command handlers.
-    """
-
     @app.command("/help")
     def handle_help_command(ack, body, client):
-        """Handles the /help command."""
+        """command for testing purposes"""
         ack()
-        client.chat_postMessage(channel=body["channel_id"], text="Help is on the way!")
+        client.chat_postMessage(channel=body["channel_id"], text="help")
 
     @app.command("/updateoprs")
     def handle_update_oprs_command(ack, body, logger, client):
