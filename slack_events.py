@@ -32,7 +32,6 @@ def register_events(app):
         category = ""
 
         # Loop through the submitted values to find the radio button selection.
-        # This is more robust than hardcoding the block_id and action_id.
         for block_id, block_data in values.items():
             for action_id, action_data in block_data.items():
                 if action_data.get("type") == "radio_buttons" and action_data.get(
@@ -100,108 +99,137 @@ def register_events(app):
     def handle_mech_modal_submission(ack, body, logger, client):
         """Handles the submission of the mechanical entry modal."""
         ack()
-        submitting_user_id = body["user"]["id"]
-        values = body["view"]["state"]["values"]
+        try:
+            # Restore entry counting functionality
+            entry_number = hkl.load("entrys")
+            entry_number += 1
+            hkl.dump(entry_number, "entrys")
 
-        m_category = body["view"]["private_metadata"]
+            submitting_user_id = body["user"]["id"]
+            values = body["view"]["state"]["values"]
 
-        user_ids = values["users_block"]["multi_users_select-action"]["selected_users"]
-        what_you_did = values["did_block"]["did_input"]["value"]
-        what_you_learned = values["learned_block"]["learned_input"]["value"]
-        milestone = (
-            values["milestone_block"]["radio_buttons-action"]["selected_option"][
-                "value"
+            m_category = body["view"]["private_metadata"]
+
+            user_ids = values["users_block"]["multi_users_select-action"][
+                "selected_users"
             ]
-            == "yes"
-        )
-        files = values["files_block"]["file_input_action"]["files"]
+            what_you_did = values["did_block"]["did_input"]["value"]
+            what_you_learned = values["learned_block"]["learned_input"]["value"]
+            milestone = (
+                values["milestone_block"]["radio_buttons-action"]["selected_option"][
+                    "value"
+                ]
+                == "yes"
+            )
+            files = values["files_block"]["file_input_action"]["files"]
 
-        user_info_list = [
-            client.users_info(user=uid)["user"]["real_name"]
-            for uid in user_ids
-            if client.users_info(user=uid)["ok"]
-        ]
-        submitting_user_name = client.users_info(user=submitting_user_id)["user"][
-            "real_name"
-        ]
+            user_info_list = [
+                client.users_info(user=uid)["user"]["real_name"]
+                for uid in user_ids
+                if client.users_info(user=uid)["ok"]
+            ]
+            submitting_user_name = client.users_info(user=submitting_user_id)["user"][
+                "real_name"
+            ]
 
-        entry_time = datetime.now(timezone(timedelta(hours=-7))).strftime("%c")
+            entry_time = datetime.now(timezone(timedelta(hours=-7))).strftime("%c")
 
-        submission_data = {
-            "is_new_project": False,
-            "project_name": m_category,
-            "category": "mechanical",
-            "entry_time": entry_time,
-            "submitting_user": submitting_user_name,
-            "selected_users": user_info_list,
-            "what_did": what_you_did,
-            "what_learned": what_you_learned,
-            "milestone": milestone,
-            "files": [
-                {"file_name": f["name"], "file_url": f["url_private"]} for f in files
-            ],
-        }
+            submission_data = {
+                "is_new_project": False,
+                "project_name": m_category,
+                "category": "mechanical",
+                "entry_id": entry_number,
+                "entry_time": entry_time,
+                "submitting_user": submitting_user_name,
+                "selected_users": user_info_list,
+                "what_did": what_you_did,
+                "what_learned": what_you_learned,
+                "milestone": milestone,
+                "files": [
+                    {"file_name": f["name"], "file_url": f["url_private"]}
+                    for f in files
+                ],
+            }
 
-        with open("submission_data.json", "w") as f:
-            json.dump(submission_data, f, indent=4)
+            with open("submission_data.json", "w") as f:
+                json.dump(submission_data, f, indent=4)
 
-        send_done_message(client, submitting_user_name, entry_time)
-        run_upload()
-        send_confirmation_message(client, "C07QFDDS9QW", "API Upload successful :)")
-        send_mechanical_update(
-            client, user_info_list, what_you_did, [f["url_private"] for f in files]
-        )
+            send_done_message(client, submitting_user_name, entry_time)
+            run_upload()
+            send_confirmation_message(client, "C07QFDDS9QW", "API Upload successful :)")
+            send_mechanical_update(
+                client, user_info_list, what_you_did, [f["url_private"] for f in files]
+            )
+        except Exception as e:
+            logger.error(f"Error handling mechanical submission: {e}")
+            send_confirmation_message(
+                client, body["user"]["id"], f"An error occurred: {e}"
+            )
 
     @app.view("prog-modal-identifier")
     def handle_prog_modal_submission(ack, body, logger, client):
         """Handles the submission of the programming entry modal."""
         ack()
-        submitting_user_id = body["user"]["id"]
-        values = body["view"]["state"]["values"]
+        try:
+            # Restore entry counting functionality
+            entry_number = hkl.load("entrys")
+            entry_number += 1
+            hkl.dump(entry_number, "entrys")
 
-        p_category = body["view"]["private_metadata"]
+            submitting_user_id = body["user"]["id"]
+            values = body["view"]["state"]["values"]
 
-        user_ids = values["users_block"]["multi_users_select-action"]["selected_users"]
-        what_you_did = values["did_block"]["did_input"]["value"]
-        what_you_learned = values["learned_block"]["learned_input"]["value"]
-        milestone = (
-            values["milestone_block"]["radio_buttons-action"]["selected_option"][
-                "value"
+            p_category = body["view"]["private_metadata"]
+
+            user_ids = values["users_block"]["multi_users_select-action"][
+                "selected_users"
             ]
-            == "yes"
-        )
+            what_you_did = values["did_block"]["did_input"]["value"]
+            what_you_learned = values["learned_block"]["learned_input"]["value"]
+            milestone = (
+                values["milestone_block"]["radio_buttons-action"]["selected_option"][
+                    "value"
+                ]
+                == "yes"
+            )
 
-        user_info_list = [
-            client.users_info(user=uid)["user"]["real_name"]
-            for uid in user_ids
-            if client.users_info(user=uid)["ok"]
-        ]
-        submitting_user_name = client.users_info(user=submitting_user_id)["user"][
-            "real_name"
-        ]
+            user_info_list = [
+                client.users_info(user=uid)["user"]["real_name"]
+                for uid in user_ids
+                if client.users_info(user=uid)["ok"]
+            ]
+            submitting_user_name = client.users_info(user=submitting_user_id)["user"][
+                "real_name"
+            ]
 
-        entry_time = datetime.now(timezone(timedelta(hours=-7))).strftime("%c")
+            entry_time = datetime.now(timezone(timedelta(hours=-7))).strftime("%c")
 
-        submission_data = {
-            "is_new_project": False,
-            "project_name": p_category,
-            "category": "programming",
-            "entry_time": entry_time,
-            "submitting_user": submitting_user_name,
-            "selected_users": user_info_list,
-            "what_did": what_you_did,
-            "what_learned": what_you_learned,
-            "milestone": milestone,
-            "files": [],
-        }
+            submission_data = {
+                "is_new_project": False,
+                "project_name": p_category,
+                "category": "programming",
+                "entry_id": entry_number,
+                "entry_time": entry_time,
+                "submitting_user": submitting_user_name,
+                "selected_users": user_info_list,
+                "what_did": what_you_did,
+                "what_learned": what_you_learned,
+                "milestone": milestone,
+                "files": [],
+            }
 
-        with open("submission_data.json", "w") as f:
-            json.dump(submission_data, f, indent=4)
+            with open("submission_data.json", "w") as f:
+                json.dump(submission_data, f, indent=4)
 
-        send_done_message(client, submitting_user_name, entry_time)
-        run_upload()
-        send_confirmation_message(client, "C07QFDDS9QW", "API Upload successful :)")
-        send_programming_update(client, user_info_list, what_you_did)
+            send_done_message(client, submitting_user_name, entry_time)
+            run_upload()
+            send_confirmation_message(client, "C07QFDDS9QW", "API Upload successful :)")
+            send_programming_update(client, user_info_list, what_you_did)
+        except Exception as e:
+            logger.error(f"Error handling programming submission: {e}")
+            send_confirmation_message(
+                client, body["user"]["id"], f"An error occurred: {e}"
+            )
 
     @app.view("outreach-modal-identifier")
     def handle_outreach_submission(ack, body, logger, client):
