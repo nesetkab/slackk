@@ -119,9 +119,10 @@ def open_new_entry_modal(trigger_id, client):
             "title": {"type": "plain_text", "text": "Create New Entry"},
             "blocks": [
                 {
-                    "type": "section",
-                    "text": {"type": "plain_text", "text": "Choose the category:"},
-                    "accessory": {
+                    "type": "input",
+                    "block_id": "input_block_id",
+                    "label": {"type": "plain_text", "text": "Choose a category:"},
+                    "element": {
                         "type": "radio_buttons",
                         "action_id": "category_action_id",
                         "options": [
@@ -455,7 +456,6 @@ def open_outreach_modal(trigger_id, client):
 def open_scout_modal(trigger_id, view_id, client, logger):
     """Opens or updates the scouting modal with team data."""
     try:
-        # Initialize Google Sheets
         if not init_google_sheets():
             raise ConnectionError("Could not connect to Google Sheets.")
 
@@ -469,7 +469,7 @@ def open_scout_modal(trigger_id, view_id, client, logger):
             }
             for team in all_teams
             if str(team[1]) not in scouted_teams
-        ][:100]  # Slack's 100 option limit
+        ][:100]
 
         view_payload = {
             "type": "modal",
@@ -644,4 +644,125 @@ def open_scout_modal(trigger_id, view_id, client, logger):
         }
         if view_id:
             client.views_update(view_id=view_id, view=error_view)
-        # If there's no view_id, we can't update anything, so we just log it.
+
+
+# --- Command Logic Functions ---
+
+
+def update_oprs_and_notify(body, logger, client):
+    """Fetches and updates OPRs, then notifies the channel."""
+    try:
+        if not init_google_sheets():
+            raise ConnectionError("Failed to initialize Google Sheets.")
+
+        all_teams = get_all_teams()
+        if not all_teams:
+            raise ValueError("Spreadsheet is empty or could not be read.")
+
+        header_row = [
+            "Name",
+            "Number",
+            "NP OPR",
+            "Auto Sample OPR",
+            "Auto Spec OPR",
+            "Auto OPR",
+            "DC Sample OPR",
+            "DC Specimen OPR",
+            "DC OPR",
+            "Ascent",
+        ]
+
+        updated_rows = []
+        errors = []
+        for row in all_teams:
+            team_number = row[1].strip()
+            if not team_number:
+                continue
+
+            stats = fetch_team_stats(team_number)
+            if not stats or not stats.get("events"):
+                errors.append(f"No stats found for team {team_number}")
+                continue
+
+            best_stats = get_best_stats(stats["events"])
+            new_row = [
+                stats["name"],
+                team_number,
+                best_stats["totalPointsNp"],
+                best_stats["autoSamplePoints"],
+                best_stats["autoSpecimenPoints"],
+                best_stats["autoPoints"],
+                best_stats["dcSamplePoints"],
+                best_stats["dcSpecimenPoints"],
+                best_stats["dcPoints"],
+                best_stats["dcParkPointsIndividual"],
+            ]
+            updated_rows.append(new_row)
+            time.sleep(0.2)
+
+        update_opr_sheet(header_row, updated_rows)
+        message = f"Successfully updated OPR stats for {len(updated_rows)} teams!"
+        if errors:
+            message += f"\nEncountered {len(errors)} errors:\n" + "\n".join(errors[:5])
+        client.chat_postMessage(channel=body["channel_id"], text=message)
+
+    except Exception as e:
+        logger.error(f"Error updating OPRs: {e}")
+        client.chat_postMessage(
+            channel=body["channel_id"], text=f"Error updating OPRs: {e}"
+        )
+
+
+def send_ftc_team_info(body, client):
+    """Fetches and sends information about a specific FTC team."""
+    team_number = body["text"]
+    team_data = ftc(team_number)
+
+    if team_data and team_data.get("data") and team_data["data"].get("teamByNumber"):
+        team = team_data["data"]["teamByNumber"]
+        location = team.get("location", {})
+        quick_stats = team.get("quickStats", {}).get("tot", {})
+
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"Team Info: {team_number} - {team['name']}",
+                },
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*School:*\n{team.get('schoolName', 'N/A')}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Rookie Year:*\n{team.get('rookieYear', 'N/A')}",
+                    },
+                ],
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Location:*\n{location.get('city', 'N/A')}, {location.get('state', 'N/A')}, {location.get('country', 'N/A')}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*OPR / Rank:*\n{round(quick_stats.get('value', 0), 2)} / #{quick_stats.get('rank', 'N/A')}",
+                    },
+                ],
+            },
+        ]
+        client.chat_postMessage(
+            channel=body["channel_id"], text=f"Team Info: {team_number}", blocks=blocks
+        )
+    else:
+        client.chat_postMessage(
+            channel=body["channel_id"],
+            text=f"Could not find data for team {team_number}",
+        )
