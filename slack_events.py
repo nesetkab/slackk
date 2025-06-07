@@ -30,11 +30,17 @@ def register_events(app):
         try:
             trigger_id = body["trigger_id"]
             values = body["view"]["state"]["values"]
-
-            # Directly access the value from the known block_id and action_id
-            category = values["category_selection_block"]["category_action_id"][
-                "selected_option"
-            ]["value"]
+            category = ""
+            # Use a loop for more robust parsing of the radio button selection
+            for block_data in values.values():
+                for action_data in block_data.values():
+                    if action_data.get("type") == "radio_buttons" and action_data.get(
+                        "selected_option"
+                    ):
+                        category = action_data["selected_option"]["value"]
+                        break
+                if category:
+                    break
 
             if category == "mech":
                 open_mech_categories(trigger_id, client)
@@ -42,7 +48,10 @@ def register_events(app):
                 open_prog_categories(trigger_id, client)
             elif category == "outreach":
                 open_outreach_modal(trigger_id, client)
-        except (KeyError, TypeError) as e:
+            else:
+                logger.error(f"Unknown category selected: {category}")
+
+        except Exception as e:
             logger.error(
                 f"Error parsing initial category submission: {e}\n{body['view']['state']['values']}"
             )
@@ -54,11 +63,23 @@ def register_events(app):
         try:
             trigger_id = body["trigger_id"]
             values = body["view"]["state"]["values"]
-            m_category = values["mech_category_block"]["mech_category_select_action"][
-                "selected_option"
-            ]["value"]
-            open_mech_modal(trigger_id, client, m_category)
-        except (KeyError, TypeError) as e:
+            m_category = ""
+            # Use a loop for more robust parsing of the static select
+            for block_data in values.values():
+                for action_data in block_data.values():
+                    if action_data.get("type") == "static_select" and action_data.get(
+                        "selected_option"
+                    ):
+                        m_category = action_data["selected_option"]["value"]
+                        break
+                if m_category:
+                    break
+
+            if m_category:
+                open_mech_modal(trigger_id, client, m_category)
+            else:
+                logger.error("Could not find mechanical category value in submission.")
+        except Exception as e:
             logger.error(
                 f"Error parsing mech category submission: {e}\n{body['view']['state']['values']}"
             )
@@ -70,11 +91,23 @@ def register_events(app):
         try:
             trigger_id = body["trigger_id"]
             values = body["view"]["state"]["values"]
-            p_category = values["prog_category_block"]["prog_category_select_action"][
-                "selected_option"
-            ]["value"]
-            open_prog_modal(trigger_id, client, p_category)
-        except (KeyError, TypeError) as e:
+            p_category = ""
+            # Use a loop for more robust parsing of the static select
+            for block_data in values.values():
+                for action_data in block_data.values():
+                    if action_data.get("type") == "static_select" and action_data.get(
+                        "selected_option"
+                    ):
+                        p_category = action_data["selected_option"]["value"]
+                        break
+                if p_category:
+                    break
+
+            if p_category:
+                open_prog_modal(trigger_id, client, p_category)
+            else:
+                logger.error("Could not find programming category value in submission.")
+        except Exception as e:
             logger.error(
                 f"Error parsing prog category submission: {e}\n{body['view']['state']['values']}"
             )
@@ -104,9 +137,7 @@ def register_events(app):
                 ]
                 == "yes"
             )
-            files = values["files_block"]["file_input_action"].get(
-                "files", []
-            )  # Use .get for safety
+            files = values["files_block"]["file_input_action"].get("files", [])
 
             user_info_list = [
                 client.users_info(user=uid)["user"]["real_name"]
