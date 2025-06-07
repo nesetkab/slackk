@@ -2,27 +2,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, request, render_template, session, redirect, url_for, flash
-from database_helpers import (
-    fetch_all_entries,
-    delete_entry as db_delete_entry,
-    fetch_single_entry,
-    update_entry,
-)
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-from flask import Flask, request, render_template, session, redirect, url_for, flash
-from slack_bolt import App
-from slack_bolt.adapter.flask import SlackRequestHandler
-from database_helpers import (
-    fetch_all_entries,
-    delete_entry as db_delete_entry,
-    fetch_single_entry,
-    update_entry,
-    fetch_all_projects,
-)
+from database_helpers import fetch_all_entries, delete_entry as db_delete_entry
 from functools import wraps
 
 # Load environment variables
@@ -99,31 +81,6 @@ def view_entries():
 def delete_entry_route(entry_id):
     db_delete_entry(entry_id)
     flash("Entry successfully deleted.", "success")
-    return redirect(url_for("view_entries"))
-
-
-@flask_app.route("/edit/<int:entry_id>")
-@login_required
-def edit_entry_route(entry_id):
-    entry = fetch_single_entry(entry_id)
-    projects = fetch_all_projects()
-    if entry:
-        return render_template("edit_entry.html", entry=entry, projects=projects)
-    else:
-        flash("Entry not found.", "error")
-        return redirect(url_for("view_entries"))
-
-
-@flask_app.route("/update/<int:entry_id>", methods=["POST"])
-@login_required
-def update_entry_route(entry_id):
-    updated_data = {
-        "what_did": request.form["what_did"],
-        "what_learned": request.form["what_learned"],
-        "project_name": request.form["project_name"],
-    }
-    update_entry(entry_id, updated_data)
-    flash("Entry successfully updated.", "success")
     return redirect(url_for("view_entries"))
 
 
