@@ -27,23 +27,16 @@ def register_events(app):
         try:
             trigger_id = body["trigger_id"]
             values = body["view"]["state"]["values"]
-
-            # Directly access the value from the known block_id and action_id
             category = values["category_selection_block"]["category_action_id"][
                 "selected_option"
             ]["value"]
 
             if category == "mech":
-                # Pass the main category as the project name for now
                 open_mech_modal(trigger_id, client, "mechanical")
             elif category == "prog":
-                # Pass the main category as the project name for now
                 open_prog_modal(trigger_id, client, "programming")
             elif category == "outreach":
                 open_outreach_modal(trigger_id, client)
-            else:
-                logger.error(f"Unknown category selected: {category}")
-
         except (KeyError, TypeError) as e:
             logger.error(
                 f"Error parsing initial category submission: {e}\n{body['view']['state']['values']}"
@@ -53,6 +46,7 @@ def register_events(app):
     def handle_mech_modal_submission(ack, body, logger, client):
         """Handles the submission of the mechanical entry modal."""
         ack()
+        submitting_user_name = "Unknown User"
         try:
             entry_number = hkl.load("entrys")
             entry_number += 1
@@ -61,7 +55,7 @@ def register_events(app):
             submitting_user_id = body["user"]["id"]
             values = body["view"]["state"]["values"]
 
-            project_name = body["view"]["private_metadata"]  # This will be 'mechanical'
+            project_name = body["view"]["private_metadata"]
 
             user_ids = values["users_block"]["multi_users_select-action"][
                 "selected_users"
@@ -108,8 +102,11 @@ def register_events(app):
                 json.dump(submission_data, f, indent=4)
 
             send_done_message(client, submitting_user_name, entry_time)
-            run_upload()
-            send_confirmation_message(client, "C07QFDDS9QW", "API Upload successful :)")
+            # Pass client and user for error reporting
+            run_upload(client, submitting_user_name)
+            send_confirmation_message(
+                client, "C07QFDDS9QW", "Database upload process initiated."
+            )
             send_mechanical_update(
                 client, user_info_list, what_you_did, [f["url_private"] for f in files]
             )
@@ -123,6 +120,7 @@ def register_events(app):
     def handle_prog_modal_submission(ack, body, logger, client):
         """Handles the submission of the programming entry modal."""
         ack()
+        submitting_user_name = "Unknown User"
         try:
             entry_number = hkl.load("entrys")
             entry_number += 1
@@ -131,9 +129,7 @@ def register_events(app):
             submitting_user_id = body["user"]["id"]
             values = body["view"]["state"]["values"]
 
-            project_name = body["view"][
-                "private_metadata"
-            ]  # This will be 'programming'
+            project_name = body["view"]["private_metadata"]
 
             user_ids = values["users_block"]["multi_users_select-action"][
                 "selected_users"
@@ -176,8 +172,11 @@ def register_events(app):
                 json.dump(submission_data, f, indent=4)
 
             send_done_message(client, submitting_user_name, entry_time)
-            run_upload()
-            send_confirmation_message(client, "C07QFDDS9QW", "API Upload successful :)")
+            # Pass client and user for error reporting
+            run_upload(client, submitting_user_name)
+            send_confirmation_message(
+                client, "C07QFDDS9QW", "Database upload process initiated."
+            )
             send_programming_update(client, user_info_list, what_you_did)
         except Exception as e:
             logger.error(f"Error handling programming submission: {e}")
