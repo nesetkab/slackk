@@ -3,12 +3,9 @@ import json
 import hickle as hkl
 from upload import main as run_upload
 from slack_helpers import (
-    open_mech_categories,
-    open_prog_categories,
-    open_outreach_modal,
     open_prog_modal,
     open_mech_modal,
-    open_scout_modal,
+    open_outreach_modal,
     send_done_message,
     send_confirmation_message,
     send_programming_update,
@@ -30,86 +27,26 @@ def register_events(app):
         try:
             trigger_id = body["trigger_id"]
             values = body["view"]["state"]["values"]
-            category = ""
-            # Use a loop for more robust parsing of the radio button selection
-            for block_data in values.values():
-                for action_data in block_data.values():
-                    if action_data.get("type") == "radio_buttons" and action_data.get(
-                        "selected_option"
-                    ):
-                        category = action_data["selected_option"]["value"]
-                        break
-                if category:
-                    break
+
+            # Directly access the value from the known block_id and action_id
+            category = values["category_selection_block"]["category_action_id"][
+                "selected_option"
+            ]["value"]
 
             if category == "mech":
-                open_mech_categories(trigger_id, client)
+                # Pass the main category as the project name for now
+                open_mech_modal(trigger_id, client, "mechanical")
             elif category == "prog":
-                open_prog_categories(trigger_id, client)
+                # Pass the main category as the project name for now
+                open_prog_modal(trigger_id, client, "programming")
             elif category == "outreach":
                 open_outreach_modal(trigger_id, client)
             else:
                 logger.error(f"Unknown category selected: {category}")
 
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             logger.error(
                 f"Error parsing initial category submission: {e}\n{body['view']['state']['values']}"
-            )
-
-    @app.view("mech-categories-identifier")
-    def handle_mech_categories_submission(ack, body, logger, client):
-        """Handles submission of the mechanical category selection."""
-        ack()
-        try:
-            trigger_id = body["trigger_id"]
-            values = body["view"]["state"]["values"]
-            m_category = ""
-            # Use a loop for more robust parsing of the static select
-            for block_data in values.values():
-                for action_data in block_data.values():
-                    if action_data.get("type") == "static_select" and action_data.get(
-                        "selected_option"
-                    ):
-                        m_category = action_data["selected_option"]["value"]
-                        break
-                if m_category:
-                    break
-
-            if m_category:
-                open_mech_modal(trigger_id, client, m_category)
-            else:
-                logger.error("Could not find mechanical category value in submission.")
-        except Exception as e:
-            logger.error(
-                f"Error parsing mech category submission: {e}\n{body['view']['state']['values']}"
-            )
-
-    @app.view("prog-categories-identifier")
-    def handle_prog_categories_submission(ack, body, logger, client):
-        """Handles submission of the programming category selection."""
-        ack()
-        try:
-            trigger_id = body["trigger_id"]
-            values = body["view"]["state"]["values"]
-            p_category = ""
-            # Use a loop for more robust parsing of the static select
-            for block_data in values.values():
-                for action_data in block_data.values():
-                    if action_data.get("type") == "static_select" and action_data.get(
-                        "selected_option"
-                    ):
-                        p_category = action_data["selected_option"]["value"]
-                        break
-                if p_category:
-                    break
-
-            if p_category:
-                open_prog_modal(trigger_id, client, p_category)
-            else:
-                logger.error("Could not find programming category value in submission.")
-        except Exception as e:
-            logger.error(
-                f"Error parsing prog category submission: {e}\n{body['view']['state']['values']}"
             )
 
     @app.view("mech-modal-identifier")
@@ -124,7 +61,7 @@ def register_events(app):
             submitting_user_id = body["user"]["id"]
             values = body["view"]["state"]["values"]
 
-            m_category = body["view"]["private_metadata"]
+            project_name = body["view"]["private_metadata"]  # This will be 'mechanical'
 
             user_ids = values["users_block"]["multi_users_select-action"][
                 "selected_users"
@@ -152,7 +89,7 @@ def register_events(app):
 
             submission_data = {
                 "is_new_project": False,
-                "project_name": m_category,
+                "project_name": project_name,
                 "category": "mechanical",
                 "entry_id": entry_number,
                 "entry_time": entry_time,
@@ -194,7 +131,9 @@ def register_events(app):
             submitting_user_id = body["user"]["id"]
             values = body["view"]["state"]["values"]
 
-            p_category = body["view"]["private_metadata"]
+            project_name = body["view"][
+                "private_metadata"
+            ]  # This will be 'programming'
 
             user_ids = values["users_block"]["multi_users_select-action"][
                 "selected_users"
@@ -221,7 +160,7 @@ def register_events(app):
 
             submission_data = {
                 "is_new_project": False,
-                "project_name": p_category,
+                "project_name": project_name,
                 "category": "programming",
                 "entry_id": entry_number,
                 "entry_time": entry_time,

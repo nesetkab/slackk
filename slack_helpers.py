@@ -146,102 +146,6 @@ def open_new_entry_modal(trigger_id, client):
     )
 
 
-def open_mech_categories(trigger_id, client):
-    """Opens the modal for selecting a mechanical category."""
-    client.views_open(
-        trigger_id=trigger_id,
-        view={
-            "type": "modal",
-            "callback_id": "mech-categories-identifier",
-            "submit": {"type": "plain_text", "text": "Next"},
-            "close": {"type": "plain_text", "text": "Cancel"},
-            "title": {"type": "plain_text", "text": "Mechanical Category"},
-            "blocks": [
-                {
-                    "type": "input",
-                    "block_id": "mech_category_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select a category",
-                        },
-                        "options": [
-                            {
-                                "value": "drivetrain",
-                                "text": {"type": "plain_text", "text": "Drivetrain"},
-                            },
-                            {
-                                "value": "intake",
-                                "text": {"type": "plain_text", "text": "Intake"},
-                            },
-                        ],
-                        "action_id": "mech_category_select_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Choose a category:"},
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "My category isn't there: DM Nes'et (this is hardcoded)",
-                    },
-                },
-            ],
-        },
-    )
-
-
-def open_prog_categories(trigger_id, client):
-    """Opens the modal for selecting a programming category."""
-    client.views_open(
-        trigger_id=trigger_id,
-        view={
-            "type": "modal",
-            "callback_id": "prog-categories-identifier",
-            "submit": {"type": "plain_text", "text": "Next"},
-            "close": {"type": "plain_text", "text": "Cancel"},
-            "title": {"type": "plain_text", "text": "Programming Category"},
-            "blocks": [
-                {
-                    "type": "input",
-                    "block_id": "prog_category_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select a category",
-                        },
-                        "options": [
-                            {
-                                "value": "limelight",
-                                "text": {"type": "plain_text", "text": "Limelight"},
-                            },
-                            {
-                                "value": "roadrunner",
-                                "text": {"type": "plain_text", "text": "Roadrunner"},
-                            },
-                            {
-                                "value": "autonomous",
-                                "text": {"type": "plain_text", "text": "Autonomous"},
-                            },
-                        ],
-                        "action_id": "prog_category_select_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Choose a category:"},
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "My category isn't there: DM Nes'et (this is hardcoded)",
-                    },
-                },
-            ],
-        },
-    )
-
-
 def open_mech_modal(trigger_id, client, category):
     """Opens the modal for a mechanical entry."""
     client.views_open(
@@ -252,10 +156,7 @@ def open_mech_modal(trigger_id, client, category):
             "private_metadata": category,
             "submit": {"type": "plain_text", "text": "Submit"},
             "close": {"type": "plain_text", "text": "Cancel"},
-            "title": {
-                "type": "plain_text",
-                "text": f"New Mechanical Entry: {category.capitalize()}",
-            },
+            "title": {"type": "plain_text", "text": "New Mechanical Entry"},
             "blocks": [
                 {
                     "type": "input",
@@ -327,10 +228,7 @@ def open_prog_modal(trigger_id, client, category):
             "private_metadata": category,
             "submit": {"type": "plain_text", "text": "Submit"},
             "close": {"type": "plain_text", "text": "Cancel"},
-            "title": {
-                "type": "plain_text",
-                "text": f"New Programming Entry: {category.capitalize()}",
-            },
+            "title": {"type": "plain_text", "text": "New Programming Entry"},
             "blocks": [
                 {
                     "type": "input",
