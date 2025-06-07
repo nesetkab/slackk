@@ -40,7 +40,6 @@ def enter_data(data_file, client, submitting_user):
     try:
         conn = connect_from_env()
         if not conn:
-            # The exception from connect_from_env will be caught by the outer block
             return
 
         with open(data_file, "r") as f:
@@ -55,7 +54,8 @@ def enter_data(data_file, client, submitting_user):
                 cur.execute(command, (data_json["project_name"], category_array))
 
             for user in data_json.get("selected_users", []):
-                cur.execute("SELECT add_user(%s, 'pass');", (user,))
+                # Add explicit type casts to match the database's strict requirements
+                cur.execute("SELECT add_user(%s::text, 'pass'::text);", (user,))
 
             command = """
                 SELECT create_entry(

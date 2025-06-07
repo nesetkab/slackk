@@ -20,6 +20,15 @@ def register_events(app):
     Registers all Slack event handlers.
     """
 
+    @app.action("category_action_id")
+    def handle_category_clicks(ack):
+        """
+        Acknowledge radio button clicks in the initial modal to prevent
+        "Unhandled request" warnings in the logs. This handler does nothing
+        else because the real action happens on view submission.
+        """
+        ack()
+
     @app.view("modal-identifier")
     def handle_initial_category_submission(ack, body, logger, client):
         """Handles the submission of the initial new entry modal."""
@@ -112,9 +121,8 @@ def register_events(app):
             )
         except Exception as e:
             logger.error(f"Error handling mechanical submission: {e}")
-            send_confirmation_message(
-                client, body["user"]["id"], f"An error occurred: {e}"
-            )
+            error_message = f"An error occurred while submitting your entry: {e}"
+            send_confirmation_message(client, body["user"]["id"], error_message)
 
     @app.view("prog-modal-identifier")
     def handle_prog_modal_submission(ack, body, logger, client):
@@ -180,9 +188,8 @@ def register_events(app):
             send_programming_update(client, user_info_list, what_you_did)
         except Exception as e:
             logger.error(f"Error handling programming submission: {e}")
-            send_confirmation_message(
-                client, body["user"]["id"], f"An error occurred: {e}"
-            )
+            error_message = f"An error occurred while submitting your entry: {e}"
+            send_confirmation_message(client, body["user"]["id"], error_message)
 
     @app.view("outreach-modal-identifier")
     def handle_outreach_submission(ack, body, logger, client):
