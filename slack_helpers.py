@@ -119,10 +119,10 @@ def open_new_entry_modal(trigger_id, client):
             "title": {"type": "plain_text", "text": "Create New Entry"},
             "blocks": [
                 {
-                    "type": "input",
-                    "block_id": "input_block_id",
-                    "label": {"type": "plain_text", "text": "Choose a category:"},
-                    "element": {
+                    "type": "section",
+                    "block_id": "category_selection_block",
+                    "text": {"type": "plain_text", "text": "Choose the category:"},
+                    "accessory": {
                         "type": "radio_buttons",
                         "action_id": "category_action_id",
                         "options": [
@@ -159,6 +159,7 @@ def open_mech_categories(trigger_id, client):
             "blocks": [
                 {
                     "type": "input",
+                    "block_id": "mech_category_block",
                     "element": {
                         "type": "static_select",
                         "placeholder": {
@@ -175,7 +176,7 @@ def open_mech_categories(trigger_id, client):
                                 "text": {"type": "plain_text", "text": "Intake"},
                             },
                         ],
-                        "action_id": "static_select-action",
+                        "action_id": "mech_category_select_action",
                     },
                     "label": {"type": "plain_text", "text": "Choose a category:"},
                 },
@@ -204,6 +205,7 @@ def open_prog_categories(trigger_id, client):
             "blocks": [
                 {
                     "type": "input",
+                    "block_id": "prog_category_block",
                     "element": {
                         "type": "static_select",
                         "placeholder": {
@@ -224,7 +226,7 @@ def open_prog_categories(trigger_id, client):
                                 "text": {"type": "plain_text", "text": "Autonomous"},
                             },
                         ],
-                        "action_id": "static_select-action",
+                        "action_id": "prog_category_select_action",
                     },
                     "label": {"type": "plain_text", "text": "Choose a category:"},
                 },

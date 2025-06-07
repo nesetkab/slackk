@@ -27,80 +27,63 @@ def register_events(app):
     def handle_initial_category_submission(ack, body, logger, client):
         """Handles the submission of the initial new entry modal."""
         ack()
-        trigger_id = body["trigger_id"]
-        values = body["view"]["state"]["values"]
-        category = ""
+        try:
+            trigger_id = body["trigger_id"]
+            values = body["view"]["state"]["values"]
 
-        # Loop through the submitted values to find the radio button selection.
-        for block_id, block_data in values.items():
-            for action_id, action_data in block_data.items():
-                if action_data.get("type") == "radio_buttons" and action_data.get(
-                    "selected_option"
-                ):
-                    category = action_data["selected_option"]["value"]
-                    break
-            if category:
-                break
+            # Directly access the value from the known block_id and action_id
+            category = values["category_selection_block"]["category_action_id"][
+                "selected_option"
+            ]["value"]
 
-        if not category:
-            logger.error("Could not find category selection in modal submission.")
-            return
-
-        if category == "mech":
-            open_mech_categories(trigger_id, client)
-        elif category == "prog":
-            open_prog_categories(trigger_id, client)
-        elif category == "outreach":
-            open_outreach_modal(trigger_id, client)
+            if category == "mech":
+                open_mech_categories(trigger_id, client)
+            elif category == "prog":
+                open_prog_categories(trigger_id, client)
+            elif category == "outreach":
+                open_outreach_modal(trigger_id, client)
+        except (KeyError, TypeError) as e:
+            logger.error(
+                f"Error parsing initial category submission: {e}\n{body['view']['state']['values']}"
+            )
 
     @app.view("mech-categories-identifier")
     def handle_mech_categories_submission(ack, body, logger, client):
         """Handles submission of the mechanical category selection."""
         ack()
-        trigger_id = body["trigger_id"]
-        values = body["view"]["state"]["values"]
-        m_category = ""
-        # Find the selected value from the static_select action
-        for block_data in values.values():
-            for action_data in block_data.values():
-                if action_data.get("type") == "static_select":
-                    m_category = action_data["selected_option"]["value"]
-                    break
-            if m_category:
-                break
-
-        if m_category:
+        try:
+            trigger_id = body["trigger_id"]
+            values = body["view"]["state"]["values"]
+            m_category = values["mech_category_block"]["mech_category_select_action"][
+                "selected_option"
+            ]["value"]
             open_mech_modal(trigger_id, client, m_category)
-        else:
-            logger.error("Could not find mechanical category selection.")
+        except (KeyError, TypeError) as e:
+            logger.error(
+                f"Error parsing mech category submission: {e}\n{body['view']['state']['values']}"
+            )
 
     @app.view("prog-categories-identifier")
     def handle_prog_categories_submission(ack, body, logger, client):
         """Handles submission of the programming category selection."""
         ack()
-        trigger_id = body["trigger_id"]
-        values = body["view"]["state"]["values"]
-        p_category = ""
-        # Find the selected value from the static_select action
-        for block_data in values.values():
-            for action_data in block_data.values():
-                if action_data.get("type") == "static_select":
-                    p_category = action_data["selected_option"]["value"]
-                    break
-            if p_category:
-                break
-
-        if p_category:
+        try:
+            trigger_id = body["trigger_id"]
+            values = body["view"]["state"]["values"]
+            p_category = values["prog_category_block"]["prog_category_select_action"][
+                "selected_option"
+            ]["value"]
             open_prog_modal(trigger_id, client, p_category)
-        else:
-            logger.error("Could not find programming category selection.")
+        except (KeyError, TypeError) as e:
+            logger.error(
+                f"Error parsing prog category submission: {e}\n{body['view']['state']['values']}"
+            )
 
     @app.view("mech-modal-identifier")
     def handle_mech_modal_submission(ack, body, logger, client):
         """Handles the submission of the mechanical entry modal."""
         ack()
         try:
-            # Restore entry counting functionality
             entry_number = hkl.load("entrys")
             entry_number += 1
             hkl.dump(entry_number, "entrys")
@@ -121,7 +104,9 @@ def register_events(app):
                 ]
                 == "yes"
             )
-            files = values["files_block"]["file_input_action"]["files"]
+            files = values["files_block"]["file_input_action"].get(
+                "files", []
+            )  # Use .get for safety
 
             user_info_list = [
                 client.users_info(user=uid)["user"]["real_name"]
@@ -171,7 +156,6 @@ def register_events(app):
         """Handles the submission of the programming entry modal."""
         ack()
         try:
-            # Restore entry counting functionality
             entry_number = hkl.load("entrys")
             entry_number += 1
             hkl.dump(entry_number, "entrys")
