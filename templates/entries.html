@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Notebook Entries</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">Engineering Notebook</h1>
+            <p class="text-gray-600">A collection of all mechanical and programming entries.</p>
+        </header>
+
+        <main class="space-y-8">
+            {% for entry in entries %}
+            <article class="bg-white rounded-lg shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 ease-in-out">
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500">{{ entry.created_at }}</p>
+                            <h2 class="text-2xl font-bold text-gray-900 mt-1">{{ entry.project|capitalize or 'General Entry' }}</h2>
+                        </div>
+                        {% if entry.is_milestone %}
+                        <span class="bg-indigo-100 text-indigo-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">Milestone</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="text-sm text-gray-600 mb-4 space-x-4">
+                        <span><strong>Creator:</strong> {{ entry.creator }}</span>
+                        <span><strong>Authors:</strong> {{ entry.authors|join(', ') }}</span>
+                    </div>
+                    
+                    <div class="prose max-w-none text-gray-700 space-y-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-800">What was done:</h4>
+                            <p>{{ entry.data[0] }}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800">What was learned:</h4>
+                            <p>{{ entry.data[1] }}</p>
+                        </div>
+                    </div>
+
+                    {% if entry.images %}
+                    <div class="mt-6">
+                        <h4 class="font-semibold text-gray-800 mb-3">Images:</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {% for image_url in entry.images %}
+                            <div class="group relative">
+                                <img src="{{ image_url }}" alt="Entry Image" class="rounded-md object-cover h-40 w-full shadow-lg transition-transform duration-300 group-hover:shadow-xl">
+                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center">
+                                    <a href="{{ image_url }}" target="_blank" class="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 bg-gray-900 bg-opacity-50 rounded-full">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5v4m0 0h4" /></svg>
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if entry.tags %}
+                    <div class="mt-6 border-t pt-4">
+                        {% for tag in entry.tags %}
+                        <span class="inline-block bg-gray-200 text-gray-800 text-xs font-medium mr-2 px-2.5 py-1 rounded-full">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </article>
+            {% else %}
+            <div class="text-center py-12 bg-white rounded-lg shadow-md">
+                <h3 class="text-xl font-semibold text-gray-700">No Entries Yet</h3>
+                <p class="text-gray-500 mt-2">Use the `/en` command in Slack to add your first entry!</p>
+            </div>
+            {% endfor %}
+        </main>
+    </div>
+
+</body>
+</html>

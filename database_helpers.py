@@ -16,7 +16,6 @@ def connect_from_env():
             password=os.environ.get("DB_PASS"),
             sslmode="require",
         )
-        print("Successfully connected to the PostgreSQL server.")
         return conn
     except Exception as error:
         print(f"Error connecting to PostgreSQL: {error}")
@@ -26,14 +25,13 @@ def connect_from_env():
 def get_or_create_user_id(cursor, user_name):
     """
     Finds a user by name. If they don't exist, creates them.
-    Returns the user's ID. Replaces the 'add_user' stored procedure.
+    Returns the user's ID.
     """
     cursor.execute("SELECT user_id FROM users WHERE user_name = %s;", (user_name,))
     result = cursor.fetchone()
     if result:
         return result[0]
     else:
-        # User does not exist, create them with a default password
         cursor.execute(
             "INSERT INTO users (user_name, user_password) VALUES (%s, %s) RETURNING user_id;",
             (user_name, "default_pass"),
@@ -53,7 +51,6 @@ def enter_data(data_file, client, submitting_user):
             with open(data_file, "r") as f:
                 data = json.load(f)
 
-            # Get IDs for all users involved, creating them if necessary
             all_user_names = set(
                 data.get("selected_users", []) + [data.get("submitting_user")]
             )
@@ -61,8 +58,6 @@ def enter_data(data_file, client, submitting_user):
                 name: get_or_create_user_id(cur, name) for name in all_user_names
             }
 
-            # --- Insert the main entry ---
-            # The 'data' column in the 'entries' table seems to expect a JSON-like array of strings
             entry_data_pg = [data.get("what_did", ""), data.get("what_learned", "")]
 
             cur.execute(
@@ -77,21 +72,16 @@ def enter_data(data_file, client, submitting_user):
                 ),
             )
             entry_id = cur.fetchone()[0]
-            print(f"Created new entry with ID: {entry_id}")
 
-            # --- Link authors to the new entry ---
             author_ids = [user_id_map[name] for name in data.get("selected_users", [])]
             for user_id in author_ids:
                 cur.execute(
                     "INSERT INTO entry_author (entry_id, user_id) VALUES (%s, %s);",
                     (entry_id, user_id),
                 )
-            print(f"Linked {len(author_ids)} authors to entry {entry_id}")
 
-            # --- Link tags (category) to the new entry ---
             category = data.get("category")
             if category:
-                # Find tag by name, or create it if it doesn't exist
                 cur.execute("SELECT tag_id FROM tags WHERE tag_name = %s;", (category,))
                 tag_result = cur.fetchone()
                 if tag_result:
@@ -103,14 +93,11 @@ def enter_data(data_file, client, submitting_user):
                     )
                     tag_id = cur.fetchone()[0]
 
-                # Link the tag to the entry
                 cur.execute(
                     "INSERT INTO entry_tags (entry_id, tag_id) VALUES (%s, %s);",
                     (entry_id, tag_id),
                 )
-                print(f"Linked tag '{category}' to entry {entry_id}")
 
-            # --- Insert images and link them to the new entry ---
             for file_info in data.get("files", []):
                 cur.execute(
                     "INSERT INTO img (img_name, img_data) VALUES (%s, %s) RETURNING img_id;",
@@ -121,12 +108,7 @@ def enter_data(data_file, client, submitting_user):
                     "INSERT INTO entry_imgs (entry_id, img_id) VALUES (%s, %s);",
                     (entry_id, img_id),
                 )
-            print(
-                f"Inserted and linked {len(data.get('files', []))} images to entry {entry_id}"
-            )
 
-            # --- Link entry to a project (simplified) ---
-            # This assumes a project with the same name as the category exists
             project_name = data.get("project_name")
             if project_name:
                 cur.execute(
@@ -140,22 +122,80 @@ def enter_data(data_file, client, submitting_user):
                         "INSERT INTO project_entries (project_id, entry_id) VALUES (%s, %s);",
                         (project_id, entry_id),
                     )
-                    print(f"Linked entry {entry_id} to project '{project_name}'")
-
-            # If all steps succeeded, commit the transaction
             conn.commit()
-            print("Database transaction committed successfully.")
 
     except Exception as e:
-        # If any error occurs, roll back the entire transaction
         if conn:
             conn.rollback()
 
         error_message = f"A database error occurred for an entry by {submitting_user}. The transaction has been rolled back.\n\n*Error:*\n```{e}```"
-        print(f"Reporting error to Slack: {error_message}")
         if client:
             client.chat_postMessage(channel="#engineering-notebook", text=error_message)
     finally:
         if conn:
             conn.close()
-            print("Database connection closed.")
+
+
+def fetch_all_entries():
+    """
+    Fetches all entries and their related data (authors, tags, images)
+    from the database for display on the website.
+    """
+    conn = None
+    entries = []
+    try:
+        conn = connect_from_env()
+        with conn.cursor() as cur:
+            # This query joins all tables and aggregates related data into arrays.
+            cur.execute("""
+                SELECT
+                    e.entry_id,
+                    e.entry_data,
+                    e.is_milestone,
+                    e.creator_name,
+                    e.created_at,
+                    p.project_name,
+                    array_agg(DISTINCT u.user_name) FILTER (WHERE u.user_name IS NOT NULL) as authors,
+                    array_agg(DISTINCT t.tag_name) FILTER (WHERE t.tag_name IS NOT NULL) as tags,
+                    array_agg(DISTINCT i.img_data) FILTER (WHERE i.img_data IS NOT NULL) as images
+                FROM
+                    entries e
+                LEFT JOIN project_entries pe ON e.entry_id = pe.entry_id
+                LEFT JOIN projects p ON pe.project_id = p.project_id
+                LEFT JOIN entry_author ea ON e.entry_id = ea.entry_id
+                LEFT JOIN users u ON ea.user_id = u.user_id
+                LEFT JOIN entry_tags et ON e.entry_id = et.entry_id
+                LEFT JOIN tags t ON et.tag_id = t.tag_id
+                LEFT JOIN entry_imgs ei ON e.entry_id = ei.entry_id
+                LEFT JOIN img i ON ei.img_id = i.img_id
+                GROUP BY
+                    e.entry_id, p.project_name
+                ORDER BY
+                    e.created_at DESC;
+            """)
+
+            # Fetch all rows from the query
+            rows = cur.fetchall()
+
+            # Process rows into a list of dictionaries
+            for row in rows:
+                entries.append(
+                    {
+                        "id": row[0],
+                        "data": row[1],
+                        "is_milestone": row[2],
+                        "creator": row[3],
+                        "created_at": row[4].strftime("%B %d, %Y - %I:%M %p"),
+                        "project": row[5],
+                        "authors": row[6] or [],
+                        "tags": row[7] or [],
+                        "images": row[8] or [],
+                    }
+                )
+        return entries
+    except Exception as e:
+        print(f"An error occurred while fetching entries: {e}")
+        return []  # Return an empty list on error
+    finally:
+        if conn:
+            conn.close()
