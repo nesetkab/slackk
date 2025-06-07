@@ -8,6 +8,7 @@ from google_sheets_client import (
     append_scout_data,
     update_opr_sheet,
 )
+from database_helpers import fetch_all_projects
 
 # --- Message Sending Functions ---
 
@@ -146,69 +147,87 @@ def open_new_entry_modal(trigger_id, client):
     )
 
 
-def open_mech_modal(trigger_id, client, category):
+def open_mech_modal(trigger_id, client):
     """Opens the modal for a mechanical entry."""
+    projects = fetch_all_projects()
+    project_options = [
+        {"text": {"type": "plain_text", "text": p}, "value": p} for p in projects
+    ]
+
     client.views_open(
         trigger_id=trigger_id,
         view={
             "type": "modal",
             "callback_id": "mech-modal-identifier",
-            "private_metadata": category,
-            "submit": {"type": "plain_text", "text": "Submit"},
-            "close": {"type": "plain_text", "text": "Cancel"},
             "title": {"type": "plain_text", "text": "New Mechanical Entry"},
+            "submit": {"type": "plain_text", "text": "Submit"},
             "blocks": [
                 {
                     "type": "input",
+                    "block_id": "project_block",
+                    "label": {"type": "plain_text", "text": "Project"},
+                    "element": {
+                        "type": "static_select",
+                        "action_id": "project_select",
+                        "placeholder": {
+                            "type": "plain_text",
+                            "text": "Select a project",
+                        },
+                        "options": project_options
+                        + [
+                            {
+                                "text": {
+                                    "type": "plain_text",
+                                    "text": "Create New Project...",
+                                },
+                                "value": "_new_",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "input",
+                    "block_id": "new_project_block",
+                    "optional": True,
+                    "label": {"type": "plain_text", "text": "New Project Name"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "new_project_name",
+                    },
+                },
+                {
+                    "type": "input",
                     "block_id": "users_block",
+                    "label": {"type": "plain_text", "text": "Who Was There?"},
                     "element": {
                         "type": "multi_users_select",
+                        "action_id": "users_select",
                         "placeholder": {"type": "plain_text", "text": "Select People"},
-                        "action_id": "multi_users_select-action",
                     },
-                    "label": {"type": "plain_text", "text": "Who Was There?"},
                 },
                 {
                     "type": "input",
                     "block_id": "did_block",
-                    "element": {"type": "plain_text_input", "action_id": "did_input"},
                     "label": {"type": "plain_text", "text": "What You Did:"},
+                    "element": {"type": "plain_text_input", "action_id": "did_input"},
                 },
                 {
                     "type": "input",
                     "block_id": "learned_block",
+                    "label": {"type": "plain_text", "text": "What You Learned:"},
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "learned_input",
                     },
-                    "label": {"type": "plain_text", "text": "What You Learned:"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "milestone_block",
-                    "element": {
-                        "type": "radio_buttons",
-                        "options": [
-                            {
-                                "text": {"type": "plain_text", "text": "Yes"},
-                                "value": "yes",
-                            },
-                            {
-                                "text": {"type": "plain_text", "text": "No"},
-                                "value": "no",
-                            },
-                        ],
-                        "action_id": "radio_buttons-action",
-                    },
-                    "label": {"type": "plain_text", "text": "Milestone?"},
                 },
                 {
                     "type": "input",
                     "block_id": "files_block",
+                    "optional": True,
                     "label": {"type": "plain_text", "text": "Upload Images"},
                     "element": {
                         "type": "file_input",
-                        "action_id": "file_input_action",
+                        "action_id": "file_input",
                         "filetypes": ["jpg", "png", "jpeg", "heic"],
                         "max_files": 10,
                     },
@@ -218,67 +237,89 @@ def open_mech_modal(trigger_id, client, category):
     )
 
 
-def open_prog_modal(trigger_id, client, category):
+def open_prog_modal(trigger_id, client):
     """Opens the modal for a programming entry."""
+    projects = fetch_all_projects()
+    project_options = [
+        {"text": {"type": "plain_text", "text": p}, "value": p} for p in projects
+    ]
+
     client.views_open(
         trigger_id=trigger_id,
         view={
             "type": "modal",
             "callback_id": "prog-modal-identifier",
-            "private_metadata": category,
-            "submit": {"type": "plain_text", "text": "Submit"},
-            "close": {"type": "plain_text", "text": "Cancel"},
             "title": {"type": "plain_text", "text": "New Programming Entry"},
+            "submit": {"type": "plain_text", "text": "Submit"},
             "blocks": [
                 {
                     "type": "input",
+                    "block_id": "project_block",
+                    "label": {"type": "plain_text", "text": "Project"},
+                    "element": {
+                        "type": "static_select",
+                        "action_id": "project_select",
+                        "placeholder": {
+                            "type": "plain_text",
+                            "text": "Select a project",
+                        },
+                        "options": project_options
+                        + [
+                            {
+                                "text": {
+                                    "type": "plain_text",
+                                    "text": "Create New Project...",
+                                },
+                                "value": "_new_",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "input",
+                    "block_id": "new_project_block",
+                    "optional": True,
+                    "label": {"type": "plain_text", "text": "New Project Name"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "new_project_name",
+                    },
+                },
+                {
+                    "type": "input",
                     "block_id": "users_block",
+                    "label": {"type": "plain_text", "text": "Who Was There?"},
                     "element": {
                         "type": "multi_users_select",
+                        "action_id": "users_select",
                         "placeholder": {"type": "plain_text", "text": "Select People"},
-                        "action_id": "multi_users_select-action",
                     },
-                    "label": {"type": "plain_text", "text": "Who Was There?"},
                 },
                 {
                     "type": "input",
                     "block_id": "did_block",
-                    "element": {"type": "plain_text_input", "action_id": "did_input"},
                     "label": {"type": "plain_text", "text": "What You Did:"},
+                    "element": {"type": "plain_text_input", "action_id": "did_input"},
                 },
                 {
                     "type": "input",
                     "block_id": "learned_block",
+                    "label": {"type": "plain_text", "text": "What You Learned:"},
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "learned_input",
                     },
-                    "label": {"type": "plain_text", "text": "What You Learned:"},
                 },
                 {
                     "type": "input",
-                    "block_id": "milestone_block",
+                    "block_id": "files_block",
+                    "optional": True,
+                    "label": {"type": "plain_text", "text": "Upload Images (Optional)"},
                     "element": {
-                        "type": "radio_buttons",
-                        "options": [
-                            {
-                                "text": {"type": "plain_text", "text": "Yes"},
-                                "value": "yes",
-                            },
-                            {
-                                "text": {"type": "plain_text", "text": "No"},
-                                "value": "no",
-                            },
-                        ],
-                        "action_id": "radio_buttons-action",
-                    },
-                    "label": {"type": "plain_text", "text": "Milestone?"},
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "If you have any images: send to #programming-progress",
+                        "type": "file_input",
+                        "action_id": "file_input",
+                        "filetypes": ["jpg", "png", "jpeg", "heic"],
+                        "max_files": 10,
                     },
                 },
             ],

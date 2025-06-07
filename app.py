@@ -1,10 +1,15 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from flask import Flask, request, render_template, session, redirect, url_for
+from flask import Flask, request, render_template, session, redirect, url_for, flash
+from database_helpers import (
+    fetch_all_entries,
+    delete_entry as db_delete_entry,
+    fetch_single_entry,
+    update_entry,
+)
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
-from database_helpers import fetch_all_entries
 from functools import wraps
 
 # Load environment variables
@@ -73,12 +78,22 @@ def login():
     return render_template("login.html", error=error)
 
 
-@flask_app.route("/entries")
+@app.route("/entries")
 @login_required
 def view_entries():
-    """Fetches all entries from the database and renders the webpage."""
+    """Fetches all entries and renders the main webpage."""
     all_entries = fetch_all_entries()
-    return render_template("entries.html", entries=all_entries)
+    entry_count = len(all_entries)
+    return render_template("entries.html", entries=all_entries, entry_count=entry_count)
+
+
+@app.route("/delete/<int:entry_id>", methods=["POST"])
+@login_required
+def delete_entry_route(entry_id):
+    """Deletes an entry."""
+    db_delete_entry(entry_id)
+    flash("Entry successfully deleted.", "success")
+    return redirect(url_for("view_entries"))
 
 
 @flask_app.route("/logout")

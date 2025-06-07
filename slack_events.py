@@ -13,6 +13,88 @@ from slack_helpers import (
 )
 from gsheet import outreach_upload
 from google_sheets_client import append_scout_data, get_all_teams
+from database_helpers import enter_data as run_db_upload
+
+
+def process_entry_submission(body, logger, client, category):
+    """A generic function to process both mech and prog submissions."""
+    try:
+        entry_number = hkl.load("entrys") + 1
+        hkl.dump(entry_number, "entrys")
+
+        values = body["view"]["state"]["values"]
+        submitting_user_info = client.users_info(user=body["user"]["id"])
+        submitting_user_name = submitting_user_info["user"]["real_name"]
+
+        # Handle project selection
+        project_selection = values["project_block"]["project_select"]["selected_option"]
+        project_name = ""
+        if project_selection and project_selection["value"] == "_new_":
+            project_name = values["new_project_block"]["new_project_name"]["value"]
+            if not project_name:
+                # Handle error: user selected "new" but didn't provide a name
+                client.chat_postMessage(
+                    channel=body["user"]["id"],
+                    text="Error: You selected 'Create New Project' but did not provide a name.",
+                )
+                return
+        elif project_selection:
+            project_name = project_selection["value"]
+        else:
+            # Handle error: no project selected
+            client.chat_postMessage(
+                channel=body["user"]["id"],
+                text="Error: You must select a project or create a new one.",
+            )
+            return
+
+        user_ids = values["users_block"]["users_select"]["selected_users"]
+        what_you_did = values["did_block"]["did_input"]["value"]
+        what_you_learned = values["learned_block"]["learned_input"]["value"]
+        files = values["files_block"]["file_input"].get("files", [])
+
+        user_info_list = [
+            client.users_info(user=uid)["user"]["real_name"] for uid in user_ids
+        ]
+
+        submission_data = {
+            "project_name": project_name,
+            "category": category,
+            "entry_id": entry_number,
+            "entry_time": datetime.now(timezone(timedelta(hours=-7))).strftime("%c"),
+            "submitting_user": submitting_user_name,
+            "selected_users": user_info_list,
+            "what_did": what_you_did,
+            "what_learned": what_you_learned,
+            "files": [
+                {"file_name": f["name"], "file_url": f["url_private"]} for f in files
+            ],
+        }
+
+        # Instead of writing to file, pass data directly
+        run_db_upload(submission_data, client, submitting_user_name)
+
+        send_done_message(client, submitting_user_name, submission_data["entry_time"])
+        send_confirmation_message(
+            client,
+            "C07QFDDS9QW",
+            f"New {category} entry for '{project_name}' submitted to database.",
+        )
+
+        if category == "mechanical":
+            send_mechanical_update(
+                client, user_info_list, what_you_did, [f["url_private"] for f in files]
+            )
+        elif category == "programming":
+            send_programming_update(
+                client, user_info_list, what_you_did, [f["url_private"] for f in files]
+            )
+
+    except Exception as e:
+        logger.error(f"Error processing {category} submission: {e}")
+        client.chat_postMessage(
+            channel=body["user"]["id"], text=f"An error occurred: {e}"
+        )
 
 
 def register_events(app):
@@ -53,143 +135,13 @@ def register_events(app):
 
     @app.view("mech-modal-identifier")
     def handle_mech_modal_submission(ack, body, logger, client):
-        """Handles the submission of the mechanical entry modal."""
         ack()
-        submitting_user_name = "Unknown User"
-        try:
-            entry_number = hkl.load("entrys")
-            entry_number += 1
-            hkl.dump(entry_number, "entrys")
-
-            submitting_user_id = body["user"]["id"]
-            values = body["view"]["state"]["values"]
-
-            project_name = body["view"]["private_metadata"]
-
-            user_ids = values["users_block"]["multi_users_select-action"][
-                "selected_users"
-            ]
-            what_you_did = values["did_block"]["did_input"]["value"]
-            what_you_learned = values["learned_block"]["learned_input"]["value"]
-            milestone = (
-                values["milestone_block"]["radio_buttons-action"]["selected_option"][
-                    "value"
-                ]
-                == "yes"
-            )
-            files = values["files_block"]["file_input_action"].get("files", [])
-
-            user_info_list = [
-                client.users_info(user=uid)["user"]["real_name"]
-                for uid in user_ids
-                if client.users_info(user=uid)["ok"]
-            ]
-            submitting_user_name = client.users_info(user=submitting_user_id)["user"][
-                "real_name"
-            ]
-
-            entry_time = datetime.now(timezone(timedelta(hours=-7))).strftime("%c")
-
-            submission_data = {
-                "is_new_project": False,
-                "project_name": project_name,
-                "category": "mechanical",
-                "entry_id": entry_number,
-                "entry_time": entry_time,
-                "submitting_user": submitting_user_name,
-                "selected_users": user_info_list,
-                "what_did": what_you_did,
-                "what_learned": what_you_learned,
-                "milestone": milestone,
-                "files": [
-                    {"file_name": f["name"], "file_url": f["url_private"]}
-                    for f in files
-                ],
-            }
-
-            with open("submission_data.json", "w") as f:
-                json.dump(submission_data, f, indent=4)
-
-            send_done_message(client, submitting_user_name, entry_time)
-            # Pass client and user for error reporting
-            run_upload(client, submitting_user_name)
-            send_confirmation_message(
-                client, "C07QFDDS9QW", "Database upload process initiated."
-            )
-            send_mechanical_update(
-                client, user_info_list, what_you_did, [f["url_private"] for f in files]
-            )
-        except Exception as e:
-            logger.error(f"Error handling mechanical submission: {e}")
-            error_message = f"An error occurred while submitting your entry: {e}"
-            send_confirmation_message(client, body["user"]["id"], error_message)
+        process_entry_submission(body, logger, client, "mechanical")
 
     @app.view("prog-modal-identifier")
     def handle_prog_modal_submission(ack, body, logger, client):
-        """Handles the submission of the programming entry modal."""
         ack()
-        submitting_user_name = "Unknown User"
-        try:
-            entry_number = hkl.load("entrys")
-            entry_number += 1
-            hkl.dump(entry_number, "entrys")
-
-            submitting_user_id = body["user"]["id"]
-            values = body["view"]["state"]["values"]
-
-            project_name = body["view"]["private_metadata"]
-
-            user_ids = values["users_block"]["multi_users_select-action"][
-                "selected_users"
-            ]
-            what_you_did = values["did_block"]["did_input"]["value"]
-            what_you_learned = values["learned_block"]["learned_input"]["value"]
-            milestone = (
-                values["milestone_block"]["radio_buttons-action"]["selected_option"][
-                    "value"
-                ]
-                == "yes"
-            )
-
-            user_info_list = [
-                client.users_info(user=uid)["user"]["real_name"]
-                for uid in user_ids
-                if client.users_info(user=uid)["ok"]
-            ]
-            submitting_user_name = client.users_info(user=submitting_user_id)["user"][
-                "real_name"
-            ]
-
-            entry_time = datetime.now(timezone(timedelta(hours=-7))).strftime("%c")
-
-            submission_data = {
-                "is_new_project": False,
-                "project_name": project_name,
-                "category": "programming",
-                "entry_id": entry_number,
-                "entry_time": entry_time,
-                "submitting_user": submitting_user_name,
-                "selected_users": user_info_list,
-                "what_did": what_you_did,
-                "what_learned": what_you_learned,
-                "milestone": milestone,
-                "files": [],
-            }
-
-            with open("submission_data.json", "w") as f:
-                json.dump(submission_data, f, indent=4)
-
-            send_done_message(client, submitting_user_name, entry_time)
-            # Pass client and user for error reporting
-            run_upload(client, submitting_user_name)
-            send_confirmation_message(
-                client, "C07QFDDS9QW", "Database upload process initiated."
-            )
-            send_programming_update(client, user_info_list, what_you_did)
-        except Exception as e:
-            logger.error(f"Error handling programming submission: {e}")
-            error_message = f"An error occurred while submitting your entry: {e}"
-            send_confirmation_message(client, body["user"]["id"], error_message)
+        process_entry_submission(body, logger, client, "programming")
 
     @app.view("outreach-modal-identifier")
     def handle_outreach_submission(ack, body, logger, client):
