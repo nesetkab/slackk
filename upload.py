@@ -1,9 +1,14 @@
-from client_functions import *
-import os
+from database_helpers import enter_data
+
 
 def main():
-    config = load_config()
+    """
+    Main function to trigger the data entry process into the database.
+    """
+    print("Starting data upload process...")
+    enter_data("submission_data.json")
+    print("Data upload process finished.")
 
-    conn = connect(config)
 
-    enterData("submission_data.json",conn)
+if __name__ == "__main__":
+    main()
