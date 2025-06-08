@@ -1,4 +1,3 @@
-import time
 from datetime import datetime, timezone, timedelta
 from ftc_scout_api import ftc
 from database_helpers import fetch_all_projects
@@ -15,8 +14,6 @@ def _create_progress_message_blocks(
     project_name, user_info, what_you_did, what_you_learned, file_info
 ):
     """A helper function to build the Block Kit structure for progress messages."""
-
-    # Start with the main header
     blocks = [
         {
             "type": "header",
@@ -25,40 +22,26 @@ def _create_progress_message_blocks(
                 "text": f"New Entry for: {project_name}",
                 "emoji": True,
             },
-        }
-    ]
-
-    # Add the details section
-    blocks.append(
+        },
         {
             "type": "section",
             "fields": [
                 {"type": "mrkdwn", "text": f"*Authors:*\n{', '.join(user_info)}"}
             ],
-        }
-    )
-
-    # Add separator
-    blocks.append({"type": "divider"})
-
-    # Add "What was done" and "What was learned"
-    blocks.append(
+        },
+        {"type": "divider"},
         {
             "type": "section",
             "text": {"type": "mrkdwn", "text": f"*What was done:*\n{what_you_did}"},
-        }
-    )
-    blocks.append(
+        },
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": f"*What was learned:*\n{what_you_learned}",
             },
-        }
-    )
-
-    # Add an image block for each uploaded file
+        },
+    ]
     if file_info:
         blocks.append({"type": "divider"})
         for image_url in file_info:
@@ -69,7 +52,6 @@ def _create_progress_message_blocks(
                     "alt_text": "User-uploaded image for the engineering notebook entry.",
                 }
             )
-
     return blocks
 
 
@@ -81,8 +63,8 @@ def send_mechanical_update(
         project_name, user_info, what_you_did, what_you_learned, file_info
     )
     client.chat_postMessage(
-        channel="C07GPKUFGQL",  # Mechanical Progress Channel
-        text=f"New Mechanical Entry for {project_name}",  # Fallback text for notifications
+        channel="C07GPKUFGQL",
+        text=f"New Mechanical Entry for {project_name}",
         blocks=blocks,
     )
 
@@ -95,8 +77,8 @@ def send_programming_update(
         project_name, user_info, what_you_did, what_you_learned, file_info
     )
     client.chat_postMessage(
-        channel="C07H9UN6VMW",  # Programming Progress Channel
-        text=f"New Programming Entry for {project_name}",  # Fallback text for notifications
+        channel="C07H9UN6VMW",
+        text=f"New Programming Entry for {project_name}",
         blocks=blocks,
     )
 
@@ -104,16 +86,13 @@ def send_programming_update(
 def send_done_message(client, sub_usr, sub_time):
     """Sends a message confirming an engineering notebook entry."""
     confirm_msg = f"{sub_usr} made an Engineering Notebook entry at {sub_time}"
-    client.chat_postMessage(
-        channel="C07QFDDS9QW", text=confirm_msg
-    )  # General Bot Channel
+    client.chat_postMessage(channel="C07QFDDS9QW", text=confirm_msg)
 
 
 # --- Modal Helper Functions ---
 
 
 def get_spec_auto_options():
-    """Returns options for specimen auto performance."""
     return [
         {"text": {"type": "plain_text", "text": "None"}, "value": "none"},
         {"text": {"type": "plain_text", "text": "1+0"}, "value": "1+0"},
@@ -128,7 +107,6 @@ def get_spec_auto_options():
 
 
 def get_sample_auto_options():
-    """Returns options for sample auto performance."""
     return [
         {"text": {"type": "plain_text", "text": "None"}, "value": "none"},
         {"text": {"type": "plain_text", "text": "0+1"}, "value": "0+1"},
@@ -143,7 +121,6 @@ def get_sample_auto_options():
 
 
 def get_tele_options():
-    """Returns options for teleop performance."""
     options = [{"text": {"type": "plain_text", "text": "None"}, "value": "0"}]
     options.extend(
         [
@@ -201,7 +178,6 @@ def open_mech_modal(trigger_id, client):
     project_options = [
         {"text": {"type": "plain_text", "text": p}, "value": p} for p in projects
     ]
-
     client.views_open(
         trigger_id=trigger_id,
         view={
@@ -296,7 +272,6 @@ def open_prog_modal(trigger_id, client):
     project_options = [
         {"text": {"type": "plain_text", "text": p}, "value": p} for p in projects
     ]
-
     client.views_open(
         trigger_id=trigger_id,
         view={
@@ -372,7 +347,7 @@ def open_prog_modal(trigger_id, client):
                     "type": "input",
                     "block_id": "files_block",
                     "optional": True,
-                    "label": {"type": "plain_text", "text": "Upload Images"},
+                    "label": {"type": "plain_text", "text": "Upload Images (Optional)"},
                     "element": {
                         "type": "file_input",
                         "action_id": "file_input",
@@ -452,23 +427,14 @@ def open_outreach_modal(trigger_id, client):
     )
 
 
-def open_scout_modal(trigger_id, view_id, client, logger):
-    """Opens or updates the scouting modal with team data."""
-    # This function is now defined in slack_commands.py to avoid circular dependencies
-    # This is a placeholder to show it should exist.
-    pass
-
-
 def send_ftc_team_info(body, client):
     """Fetches and sends information about a specific FTC team."""
     team_number = body["text"]
     team_data = ftc(team_number)
-
     if team_data and team_data.get("data") and team_data["data"].get("teamByNumber"):
         team = team_data["data"]["teamByNumber"]
         location = team.get("location", {})
         quick_stats = team.get("quickStats", {}).get("tot", {})
-
         blocks = [
             {
                 "type": "header",
