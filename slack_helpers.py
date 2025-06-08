@@ -1,13 +1,6 @@
 import time
 from datetime import datetime, timezone, timedelta
-from ftc_scout_api import fetch_team_stats, get_best_stats, ftc
-from google_sheets_client import (
-    init_google_sheets,
-    get_all_teams,
-    get_scouted_teams,
-    append_scout_data,
-    update_opr_sheet,
-)
+from ftc_scout_api import ftc
 from database_helpers import fetch_all_projects
 
 # --- Message Sending Functions ---
@@ -18,23 +11,93 @@ def send_confirmation_message(client, channel_id, text):
     client.chat_postMessage(channel=channel_id, text=text)
 
 
-def send_mechanical_update(client, user_info, what_you_did, file_info):
-    """Sends an update message for a mechanical entry."""
-    attachments = [
-        {"fallback": "Image attachment", "image_url": file} for file in file_info
+def _create_progress_message_blocks(
+    project_name, user_info, what_you_did, what_you_learned, file_info
+):
+    """A helper function to build the Block Kit structure for progress messages."""
+
+    # Start with the main header
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"New Entry for: {project_name}",
+                "emoji": True,
+            },
+        }
     ]
+
+    # Add the details section
+    blocks.append(
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Authors:*\n{', '.join(user_info)}"}
+            ],
+        }
+    )
+
+    # Add separator
+    blocks.append({"type": "divider"})
+
+    # Add "What was done" and "What was learned"
+    blocks.append(
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*What was done:*\n{what_you_did}"},
+        }
+    )
+    blocks.append(
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*What was learned:*\n{what_you_learned}",
+            },
+        }
+    )
+
+    # Add an image block for each uploaded file
+    if file_info:
+        blocks.append({"type": "divider"})
+        for image_url in file_info:
+            blocks.append(
+                {
+                    "type": "image",
+                    "image_url": image_url,
+                    "alt_text": "User-uploaded image for the engineering notebook entry.",
+                }
+            )
+
+    return blocks
+
+
+def send_mechanical_update(
+    client, project_name, user_info, what_you_did, what_you_learned, file_info
+):
+    """Sends a richly formatted update message for a mechanical entry."""
+    blocks = _create_progress_message_blocks(
+        project_name, user_info, what_you_did, what_you_learned, file_info
+    )
     client.chat_postMessage(
         channel="C07GPKUFGQL",  # Mechanical Progress Channel
-        text=f"**New Entry**:\n{', '.join(user_info)}\n- **What:** {what_you_did}",
-        attachments=attachments,
+        text=f"New Mechanical Entry for {project_name}",  # Fallback text for notifications
+        blocks=blocks,
     )
 
 
-def send_programming_update(client, user_info, what_you_did):
-    """Sends an update message for a programming entry."""
+def send_programming_update(
+    client, project_name, user_info, what_you_did, what_you_learned, file_info
+):
+    """Sends a richly formatted update message for a programming entry, with optional images."""
+    blocks = _create_progress_message_blocks(
+        project_name, user_info, what_you_did, what_you_learned, file_info
+    )
     client.chat_postMessage(
         channel="C07H9UN6VMW",  # Programming Progress Channel
-        text=f"**New Entry**:\n{', '.join(user_info)}\n- **What:** {what_you_did}",
+        text=f"New Programming Entry for {project_name}",  # Fallback text for notifications
+        blocks=blocks,
     )
 
 
@@ -44,20 +107,6 @@ def send_done_message(client, sub_usr, sub_time):
     client.chat_postMessage(
         channel="C07QFDDS9QW", text=confirm_msg
     )  # General Bot Channel
-    upload_submission_data(client)
-
-
-def upload_submission_data(client):
-    """Uploads the submission_data.json file to Slack."""
-    try:
-        client.files_upload_v2(
-            file="submission_data.json",
-            title="Submission Data",
-            initial_comment="Submission Data",
-            channel="C07QFDDS9QW",  # General Bot Channel
-        )
-    except Exception as e:
-        print(f"Error uploading submission data: {e}")
 
 
 # --- Modal Helper Functions ---
@@ -115,9 +164,8 @@ def open_new_entry_modal(trigger_id, client):
         view={
             "type": "modal",
             "callback_id": "modal-identifier",
-            "submit": {"type": "plain_text", "text": "Next"},
-            "close": {"type": "plain_text", "text": "Cancel"},
             "title": {"type": "plain_text", "text": "Create New Entry"},
+            "submit": {"type": "plain_text", "text": "Next"},
             "blocks": [
                 {
                     "type": "section",
@@ -209,7 +257,11 @@ def open_mech_modal(trigger_id, client):
                     "type": "input",
                     "block_id": "did_block",
                     "label": {"type": "plain_text", "text": "What You Did:"},
-                    "element": {"type": "plain_text_input", "action_id": "did_input"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "did_input",
+                        "multiline": True,
+                    },
                 },
                 {
                     "type": "input",
@@ -218,6 +270,7 @@ def open_mech_modal(trigger_id, client):
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "learned_input",
+                        "multiline": True,
                     },
                 },
                 {
@@ -299,7 +352,11 @@ def open_prog_modal(trigger_id, client):
                     "type": "input",
                     "block_id": "did_block",
                     "label": {"type": "plain_text", "text": "What You Did:"},
-                    "element": {"type": "plain_text_input", "action_id": "did_input"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "did_input",
+                        "multiline": True,
+                    },
                 },
                 {
                     "type": "input",
@@ -308,13 +365,14 @@ def open_prog_modal(trigger_id, client):
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "learned_input",
+                        "multiline": True,
                     },
                 },
                 {
                     "type": "input",
                     "block_id": "files_block",
                     "optional": True,
-                    "label": {"type": "plain_text", "text": "Upload Images (Optional)"},
+                    "label": {"type": "plain_text", "text": "Upload Images"},
                     "element": {
                         "type": "file_input",
                         "action_id": "file_input",
@@ -396,262 +454,9 @@ def open_outreach_modal(trigger_id, client):
 
 def open_scout_modal(trigger_id, view_id, client, logger):
     """Opens or updates the scouting modal with team data."""
-    try:
-        if not init_google_sheets():
-            raise ConnectionError("Could not connect to Google Sheets.")
-
-        all_teams = get_all_teams()
-        scouted_teams = get_scouted_teams()
-
-        team_options = [
-            {
-                "text": {"type": "plain_text", "text": f"{team[1]} - {team[0]}"},
-                "value": str(team[1]),
-            }
-            for team in all_teams
-            if str(team[1]) not in scouted_teams
-        ][:100]
-
-        view_payload = {
-            "type": "modal",
-            "callback_id": "scout-modal-identifier",
-            "title": {"type": "plain_text", "text": "Scout Team"},
-            "submit": {"type": "plain_text", "text": "Submit"},
-            "close": {"type": "plain_text", "text": "Cancel"},
-            "blocks": [
-                {
-                    "type": "input",
-                    "block_id": "team_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {"type": "plain_text", "text": "Select a team"},
-                        "options": team_options,
-                        "action_id": "team_select_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Select Team"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "robot_type_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select robot type",
-                        },
-                        "options": [
-                            {
-                                "text": {"type": "plain_text", "text": "Specimen"},
-                                "value": "specimen",
-                            },
-                            {
-                                "text": {"type": "plain_text", "text": "Sample"},
-                                "value": "sample",
-                            },
-                            {
-                                "text": {"type": "plain_text", "text": "Both"},
-                                "value": "both",
-                            },
-                        ],
-                        "action_id": "robot_type_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Robot Type"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "spec_auto_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select Specimen Auto",
-                        },
-                        "options": get_spec_auto_options(),
-                        "action_id": "spec_auto_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Specimen Auto"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "sample_auto_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select Sample Auto",
-                        },
-                        "options": get_sample_auto_options(),
-                        "action_id": "sample_auto_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Sample Auto"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "spec_tele_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select Specimen Teleop",
-                        },
-                        "options": get_tele_options(),
-                        "action_id": "spec_tele_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Specimen Teleop"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "sample_tele_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select Sample Teleop",
-                        },
-                        "options": get_tele_options(),
-                        "action_id": "sample_tele_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Sample Teleop"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "ascent_block",
-                    "element": {
-                        "type": "static_select",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Select ascent level",
-                        },
-                        "options": [
-                            {
-                                "text": {"type": "plain_text", "text": "None"},
-                                "value": "none",
-                            },
-                            {
-                                "text": {"type": "plain_text", "text": "L1"},
-                                "value": "l1",
-                            },
-                            {
-                                "text": {"type": "plain_text", "text": "L2"},
-                                "value": "l2",
-                            },
-                            {
-                                "text": {"type": "plain_text", "text": "L3"},
-                                "value": "l3",
-                            },
-                        ],
-                        "action_id": "ascent_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Ascent Level"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "contact_block",
-                    "element": {
-                        "type": "plain_text_input",
-                        "action_id": "contact_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Contact Information"},
-                },
-                {
-                    "type": "input",
-                    "block_id": "notes_block",
-                    "element": {
-                        "type": "plain_text_input",
-                        "multiline": True,
-                        "action_id": "notes_action",
-                    },
-                    "label": {"type": "plain_text", "text": "Additional Notes"},
-                },
-            ],
-        }
-
-        if view_id:
-            client.views_update(view_id=view_id, view=view_payload)
-        else:
-            client.views_open(trigger_id=trigger_id, view=view_payload)
-
-    except Exception as e:
-        logger.error(f"Error creating scout modal: {e}")
-        error_view = {
-            "type": "modal",
-            "title": {"type": "plain_text", "text": "Error"},
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"An error occurred: {e}"},
-                }
-            ],
-        }
-        if view_id:
-            client.views_update(view_id=view_id, view=error_view)
-
-
-# --- Command Logic Functions ---
-
-
-def update_oprs_and_notify(body, logger, client):
-    """Fetches and updates OPRs, then notifies the channel."""
-    try:
-        if not init_google_sheets():
-            raise ConnectionError("Failed to initialize Google Sheets.")
-
-        all_teams = get_all_teams()
-        if not all_teams:
-            raise ValueError("Spreadsheet is empty or could not be read.")
-
-        header_row = [
-            "Name",
-            "Number",
-            "NP OPR",
-            "Auto Sample OPR",
-            "Auto Spec OPR",
-            "Auto OPR",
-            "DC Sample OPR",
-            "DC Specimen OPR",
-            "DC OPR",
-            "Ascent",
-        ]
-
-        updated_rows = []
-        errors = []
-        for row in all_teams:
-            team_number = row[1].strip()
-            if not team_number:
-                continue
-
-            stats = fetch_team_stats(team_number)
-            if not stats or not stats.get("events"):
-                errors.append(f"No stats found for team {team_number}")
-                continue
-
-            best_stats = get_best_stats(stats["events"])
-            new_row = [
-                stats["name"],
-                team_number,
-                best_stats["totalPointsNp"],
-                best_stats["autoSamplePoints"],
-                best_stats["autoSpecimenPoints"],
-                best_stats["autoPoints"],
-                best_stats["dcSamplePoints"],
-                best_stats["dcSpecimenPoints"],
-                best_stats["dcPoints"],
-                best_stats["dcParkPointsIndividual"],
-            ]
-            updated_rows.append(new_row)
-            time.sleep(0.2)
-
-        update_opr_sheet(header_row, updated_rows)
-        message = f"Successfully updated OPR stats for {len(updated_rows)} teams!"
-        if errors:
-            message += f"\nEncountered {len(errors)} errors:\n" + "\n".join(errors[:5])
-        client.chat_postMessage(channel=body["channel_id"], text=message)
-
-    except Exception as e:
-        logger.error(f"Error updating OPRs: {e}")
-        client.chat_postMessage(
-            channel=body["channel_id"], text=f"Error updating OPRs: {e}"
-        )
+    # This function is now defined in slack_commands.py to avoid circular dependencies
+    # This is a placeholder to show it should exist.
+    pass
 
 
 def send_ftc_team_info(body, client):
