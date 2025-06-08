@@ -100,7 +100,6 @@ def enter_data(data, client, submitting_user):
         error_message = f"DB Error by {submitting_user}: Transaction rolled back.\n*Error:*\n```{e}```"
         if client:
             client.chat_postMessage(channel="#engineering-notebook", text=error_message)
-        # Re-raise the exception to be caught by the calling function if needed
         raise e
     finally:
         if conn:
@@ -142,7 +141,7 @@ def fetch_all_entries():
             ]
     except Exception as e:
         print(f"An error occurred while fetching entries: {e}")
-        return []  # ALWAYS return a list, even on error
+        return []
     finally:
         if conn:
             conn.close()
@@ -158,7 +157,7 @@ def fetch_all_projects():
             return [row[0] for row in cur.fetchall()]
     except Exception as e:
         print(f"An error occurred while fetching projects: {e}")
-        return []  # ALWAYS return a list, even on error
+        return []
     finally:
         if conn:
             conn.close()
@@ -174,6 +173,69 @@ def delete_entry(entry_id):
             conn.commit()
     except Exception as e:
         print(f"Error deleting entry {entry_id}: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
+def fetch_single_entry(entry_id):
+    """Fetches a single entry by its ID for editing."""
+    conn = None
+    try:
+        conn = connect_from_env()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT e.entry_id, e.entry_data, p.project_name
+                FROM entries e
+                LEFT JOIN project_entries pe ON e.entry_id = pe.entry_id
+                LEFT JOIN projects p ON pe.project_id = p.project_id
+                WHERE e.entry_id = %s;
+            """,
+                (entry_id,),
+            )
+            row = cur.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "what_did": row[1][0] if row[1] and len(row[1]) > 0 else "",
+                    "what_learned": row[1][1] if row[1] and len(row[1]) > 1 else "",
+                    "project": row[2],
+                }
+            return None
+    except Exception as e:
+        print(f"Error fetching single entry {entry_id}: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def update_entry(entry_id, data):
+    """Updates an existing entry in the database."""
+    conn = None
+    try:
+        conn = connect_from_env()
+        with conn.cursor() as cur:
+            project_id = get_or_create_project_id(cur, data["project_name"])
+            entry_data_pg = [data["what_did"], data["what_learned"]]
+
+            cur.execute(
+                "UPDATE entries SET entry_data = %s WHERE entry_id = %s;",
+                (entry_data_pg, entry_id),
+            )
+
+            cur.execute("DELETE FROM project_entries WHERE entry_id = %s;", (entry_id,))
+            cur.execute(
+                "INSERT INTO project_entries (project_id, entry_id) VALUES (%s, %s);",
+                (project_id, entry_id),
+            )
+
+            conn.commit()
+    except Exception as e:
+        print(f"Error updating entry {entry_id}: {e}")
         if conn:
             conn.rollback()
     finally:

@@ -132,7 +132,6 @@ def register_events(app):
         ack()
         try:
             values = body["view"]["state"]["values"]
-
             name = values["name_block"]["name_input"]["value"]
             date = values["date_block"]["datepicker"]["selected_date"]
             user_ids = values["users_block"]["multi_users_select-action"][
@@ -140,14 +139,12 @@ def register_events(app):
             ]
             indiv_hours = values["hours_block"]["hours_input"]["value"]
             affected_people = values["people_block"]["people_input"]["value"]
-
             user_info_list = [
                 client.users_info(user=uid)["user"]["real_name"]
                 for uid in user_ids
                 if client.users_info(user=uid)["ok"]
             ]
             team_hours = len(user_info_list) * float(indiv_hours)
-
             submission_data = [
                 name,
                 date,
@@ -156,7 +153,6 @@ def register_events(app):
                 str(team_hours),
                 affected_people,
             ]
-
             result = outreach_upload(submission_data, client)
             send_confirmation_message(
                 client,
@@ -181,18 +177,14 @@ def register_events(app):
                 if submitting_user_info["ok"]
                 else "Unknown User"
             )
-
             team_number = values["team_block"]["team_select_action"]["selected_option"][
                 "value"
             ]
-
-            # This requires google_sheets_client to be initialized
             all_teams = get_all_teams()
             team_name = next(
                 (team[0] for team in all_teams if team[1] == team_number),
                 "Unknown Team",
             )
-
             new_row = [
                 submitting_user,
                 team_number,
@@ -216,7 +208,6 @@ def register_events(app):
                 values["contact_block"]["contact_action"]["value"],
                 values["notes_block"]["notes_action"]["value"],
             ]
-
             append_scout_data(new_row)
             send_confirmation_message(
                 client,
