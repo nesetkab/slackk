@@ -76,13 +76,24 @@ def process_entry_submission(body, logger, client, category):
             f"New {category} entry for '{project_name}' submitted to database.",
         )
 
+        file_urls = [f["url_private"] for f in files]
         if category == "mechanical":
             send_mechanical_update(
-                client, user_info_list, what_you_did, [f["url_private"] for f in files]
+                client,
+                project_name,
+                user_info_list,
+                what_you_did,
+                what_you_learned,
+                file_urls,
             )
         else:  # Handles programming
             send_programming_update(
-                client, user_info_list, what_you_did, [f["url_private"] for f in files]
+                client,
+                project_name,
+                user_info_list,
+                what_you_did,
+                what_you_learned,
+                file_urls,
             )
 
     except Exception as e:
