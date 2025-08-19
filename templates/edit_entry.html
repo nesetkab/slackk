@@ -1,45 +1,57 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Entry - Engineering Notebook</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Inter', sans-serif; } </style>
+    <title>Edit Entry</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        form { display: flex; flex-direction: column; max-width: 500px; }
+        label { margin-top: 10px; }
+        input, textarea { padding: 8px; margin-top: 5px; }
+        button { margin-top: 20px; padding: 10px; }
+        .flash-messages { list-style-type: none; padding: 0; }
+        .flash-messages li { color: red; }
+        img, video { max-width: 200px; height: auto; margin-top: 10px; }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <header class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-800">Edit Entry #{{ entry.id }}</h1>
-        </header>
+<body>
+    <h1>Edit Entry #{{ entry.id }}</h1>
 
-        <form action="{{ url_for('update_entry_route', entry_id=entry.id) }}" method="post" class="bg-white p-8 rounded-lg shadow-md space-y-6">
-            <div>
-                <label for="project_name" class="block text-sm font-medium text-gray-700">Project</label>
-                <select name="project_name" id="project_name" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    {% for p in projects %}
-                        <option value="{{ p }}" {% if p == entry.project %}selected{% endif %}>{{ p }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div>
-                <label for="what_did" class="block text-sm font-medium text-gray-700">What was done:</label>
-                <textarea id="what_did" name="what_did" rows="5" class="mt-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">{{ entry.what_did }}</textarea>
-            </div>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flash-messages">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
 
-            <div>
-                <label for="what_learned" class="block text-sm font-medium text-gray-700">What was learned:</label>
-                <textarea id="what_learned" name="what_learned" rows="5" class="mt-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">{{ entry.what_learned }}</textarea>
-            </div>
+    <form method="post" enctype="multipart/form-data">
+        <label for="author_name">Author Name:</label>
+        <input type="text" id="author_name" name="author_name" value="{{ entry.author_name }}">
 
-            <div class="flex justify-end space-x-4">
-                <a href="{{ url_for('view_entries') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded transition-colors">Cancel</a>
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition-colors">Save Changes</button>
-            </div>
-        </form>
-    </div>
+        <label for="entry_text">Entry Text:</label>
+        <textarea id="entry_text" name="entry_text" rows="5">{{ entry.entry_text }}</textarea>
+
+        <label for="file">Media File:</label>
+        {% if entry.image_filename %}
+            <p>Current file: {{ entry.image_filename }}</p>
+            {% set extension = entry.image_filename.rsplit('.', 1)[1].lower() %}
+            {% if extension in ['png', 'jpg', 'jpeg', 'gif'] %}
+                <img src="{{ url_for('static', filename='uploads/' + entry.image_filename) }}" alt="Current image">
+            {% elif extension in ['mp4', 'mov', 'avi', 'mkv', 'webm'] %}
+                <video controls>
+                    <source src="{{ url_for('static', filename='uploads/' + entry.image_filename) }}" type="video/{{ extension }}">
+                    Your browser does not support the video tag.
+                </video>
+            {% endif %}
+        {% endif %}
+        <input type="file" id="file" name="file" accept="image/*,video/*">
+
+        <button type="submit">Update Entry</button>
+    </form>
+    <a href="{{ url_for('entries') }}">Back to Entries</a>
 </body>
 </html>
