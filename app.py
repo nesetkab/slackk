@@ -1,130 +1,126 @@
 import os
-import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-from werkzeug.utils import secure_filename
-from werkzeug.security import check_password_hash, generate_password_hash
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
+from pathlib import Path
+from dotenv import load_dotenv
+from flask import Flask, request, render_template, session, redirect, url_for, flash
+from slack_bolt import App
+from slack_bolt.adapter.flask import SlackRequestHandler
 from database_helpers import (
-    get_db_connection,
-    get_all_entries,
-    get_entry_by_id,
-    update_entry_in_db,
-    delete_entry_from_db,
+    fetch_all_entries,
+    delete_entry as db_delete_entry,
+    fetch_single_entry,
+    update_entry,
+    fetch_all_projects,
+)
+from functools import wraps
+
+# Load environment variables
+env_path = Path(".") / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# Initialize Flask and Slack apps
+flask_app = Flask(__name__)
+flask_app.config["SECRET_KEY"] = os.environ.get(
+    "FLASK_SECRET_KEY", "a-strong-default-secret-key-for-dev"
 )
 
-app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "a_default_secret_key")
-app.config["UPLOAD_FOLDER"] = "static/uploads"
+app = App(
+    token=os.environ.get("SLACK_TOKEN"),
+    signing_secret=os.environ.get("SIGNING_SECRET"),
+)
+handler = SlackRequestHandler(app)
+application = flask_app
 
-# Define allowed extensions for file uploads, now including video formats
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "mp4", "mov", "avi", "mkv", "webm"}
+# Import and register handlers
+from slack_commands import register_commands
+from slack_events import register_events
 
-# Ensure the upload folder exists
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-
-
-def allowed_file(filename):
-    """Check if the uploaded file has an allowed extension."""
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+register_commands(app)
+register_events(app)
 
 
-@app.route("/login", methods=["GET", "POST"])
+# --- Authentication Decorator ---
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "logged_in" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+# --- Slack Bot Routes ---
+@flask_app.route("/slack/events", methods=["POST"])
+def slack_events_handler():
+    return handler.handle(request)
+
+
+# --- Web Viewer Routes ---
+@flask_app.route("/")
+def index():
+    return redirect(url_for("view_entries"))
+
+
+@flask_app.route("/login", methods=["GET", "POST"])
 def login():
-    """Handle user login."""
+    error = None
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-
-        # Check against environment variables
-        env_username = os.environ.get("FLASK_USERNAME")
-        env_password_hash = os.environ.get("FLASK_PASSWORD_HASH")
-
-        if username == env_username and check_password_hash(
-            env_password_hash, password
-        ):
+        site_password = os.environ.get("SITE_PASSWORD")
+        if request.form["password"] == site_password:
             session["logged_in"] = True
-            return redirect(url_for("entries"))
+            return redirect(url_for("view_entries"))
         else:
-            flash("Invalid credentials")
-    return render_template("login.html")
+            error = "Invalid password provided. Please try again."
+    return render_template("login.html", error=error)
 
 
-@app.route("/logout")
+@flask_app.route("/entries")
+@login_required
+def view_entries():
+    all_entries = fetch_all_entries()
+    entry_count = len(all_entries)
+    return render_template("entries.html", entries=all_entries, entry_count=entry_count)
+
+
+@flask_app.route("/delete/<int:entry_id>", methods=["POST"])
+@login_required
+def delete_entry_route(entry_id):
+    db_delete_entry(entry_id)
+    flash("Entry successfully deleted.", "success")
+    return redirect(url_for("view_entries"))
+
+
+@flask_app.route("/edit/<int:entry_id>")
+@login_required
+def edit_entry_route(entry_id):
+    entry = fetch_single_entry(entry_id)
+    projects = fetch_all_projects()
+    if entry:
+        return render_template("edit_entry.html", entry=entry, projects=projects)
+    else:
+        flash("Entry not found.", "error")
+        return redirect(url_for("view_entries"))
+
+
+@flask_app.route("/update/<int:entry_id>", methods=["POST"])
+@login_required
+def update_entry_route(entry_id):
+    updated_data = {
+        "what_did": request.form["what_did"],
+        "what_learned": request.form["what_learned"],
+        "project_name": request.form["project_name"],
+    }
+    update_entry(entry_id, updated_data)
+    flash("Entry successfully updated.", "success")
+    return redirect(url_for("view_entries"))
+
+
+@flask_app.route("/logout")
 def logout():
-    """Handle user logout."""
     session.pop("logged_in", None)
     return redirect(url_for("login"))
 
 
-@app.route("/")
-def index():
-    """Redirect to login page if not logged in, otherwise show entries."""
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
-    return redirect(url_for("entries"))
-
-
-@app.route("/entries")
-def entries():
-    """Display all entries."""
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
-
-    sort_by = request.args.get("sort_by", "timestamp")
-    sort_order = request.args.get("sort_order", "desc")
-
-    all_entries = get_all_entries(sort_by, sort_order)
-    return render_template(
-        "entries.html", entries=all_entries, sort_by=sort_by, sort_order=sort_order
-    )
-
-
-@app.route("/edit/<int:entry_id>", methods=["GET", "POST"])
-def edit_entry(entry_id):
-    """Handle editing of a specific entry."""
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
-
-    entry = get_entry_by_id(entry_id)
-    if not entry:
-        return "Entry not found", 404
-
-    if request.method == "POST":
-        author_name = request.form["author_name"]
-        entry_text = request.form["entry_text"]
-        image_filename = entry["image_filename"]
-
-        # Handle file upload
-        if "file" in request.files:
-            file = request.files["file"]
-            if file and file.filename != "" and allowed_file(file.filename):
-                # If a new file is uploaded, save it and update the filename
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-                image_filename = filename
-            elif file and file.filename != "" and not allowed_file(file.filename):
-                flash(
-                    "Invalid file type. Allowed types are: "
-                    + ", ".join(ALLOWED_EXTENSIONS)
-                )
-                return render_template("edit_entry.html", entry=entry)
-
-        update_entry_in_db(entry_id, author_name, entry_text, image_filename)
-        return redirect(url_for("entries"))
-
-    return render_template("edit_entry.html", entry=entry)
-
-
-@app.route("/delete/<int:entry_id>", methods=["POST"])
-def delete_entry(entry_id):
-    """Handle deletion of a specific entry."""
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
-
-    delete_entry_from_db(entry_id)
-    return redirect(url_for("entries"))
-
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host="0.0.0.0", port=port, debug=True)

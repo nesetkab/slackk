@@ -50,6 +50,7 @@ def pull_data(conn, table):
     cur.execute(command)
     return cur.fetchall()
 
+
 def clean_tuple(tuple):
     if type(tuple) in [type([]), type(())]:
         tuple = str(tuple)
@@ -121,6 +122,7 @@ def pull_row(row, table, conn):
         row = row.replace(c, "")
     cur.execute(f"SELECT {row} FROM {table}")
     return cur.fetchall()
+
 
 def get_data_struct(conn):
     columns, connections = get_columns(conn)
@@ -256,7 +258,6 @@ def convertArray(string):
 
 
 def enterData(data, conn):
-
     with open(data, "r") as f:
         try:
             data_json = json.loads(f.read())
@@ -339,6 +340,7 @@ def filter_data(data, tags):
                     }
     entries = str(entries).replace("'", '"')
     return clean_tuple(entries)
+
 
 def extract_json(conn):
     main_tables, relate_tables = get_data_struct(conn)

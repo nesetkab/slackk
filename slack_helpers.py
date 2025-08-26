@@ -11,7 +11,7 @@ def send_confirmation_message(client, channel_id, text):
 
 
 def _create_progress_message_blocks(
-    project_name, user_info, what_you_did, what_you_learned, file_info
+    project_name, user_info, what_you_did, what_do_next, file_info
 ):
     """A helper function to build the Block Kit structure for progress messages."""
     blocks = [
@@ -26,7 +26,7 @@ def _create_progress_message_blocks(
         {
             "type": "section",
             "fields": [
-                {"type": "mrkdwn", "text": f"*Authors:*\n{', '.join(user_info)}"}
+                {"type": "mrkdwn", "text": f"*Who Was There:*\n{', '.join(user_info)}"}
             ],
         },
         {"type": "divider"},
@@ -38,7 +38,7 @@ def _create_progress_message_blocks(
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*What was learned:*\n{what_you_learned}",
+                "text": f"*What to do next?:*\n{what_do_next}",
             },
         },
     ]
@@ -56,11 +56,11 @@ def _create_progress_message_blocks(
 
 
 def send_mechanical_update(
-    client, project_name, user_info, what_you_did, what_you_learned, file_info
+    client, project_name, user_info, what_you_did, what_do_next, file_info
 ):
     """Sends a richly formatted update message for a mechanical entry."""
     blocks = _create_progress_message_blocks(
-        project_name, user_info, what_you_did, what_you_learned, file_info
+        project_name, user_info, what_you_did, what_do_next, file_info
     )
     client.chat_postMessage(
         channel="C07GPKUFGQL",
@@ -70,11 +70,11 @@ def send_mechanical_update(
 
 
 def send_programming_update(
-    client, project_name, user_info, what_you_did, what_you_learned, file_info
+    client, project_name, user_info, what_you_did, what_do_next, file_info
 ):
     """Sends a richly formatted update message for a programming entry, with optional images."""
     blocks = _create_progress_message_blocks(
-        project_name, user_info, what_you_did, what_you_learned, file_info
+        project_name, user_info, what_you_did, what_do_next, file_info
     )
     client.chat_postMessage(
         channel="C07H9UN6VMW",
@@ -347,7 +347,7 @@ def open_prog_modal(trigger_id, client):
                     "type": "input",
                     "block_id": "files_block",
                     "optional": True,
-                    "label": {"type": "plain_text", "text": "Upload Images (Optional)"},
+                    "label": {"type": "plain_text", "text": "Upload Images"},
                     "element": {
                         "type": "file_input",
                         "action_id": "file_input",
