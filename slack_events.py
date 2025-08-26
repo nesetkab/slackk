@@ -46,7 +46,7 @@ def process_entry_submission(body, logger, client, category):
 
         user_ids = values["users_block"]["users_select"]["selected_users"]
         what_you_did = values["did_block"]["did_input"]["value"]
-        what_you_learned = values["learned_block"]["learned_input"]["value"]
+        what_do_next = values["learned_block"]["next_input"]["value"]
         files = values["files_block"]["file_input"].get("files", [])
 
         user_info_list = [
@@ -61,7 +61,7 @@ def process_entry_submission(body, logger, client, category):
             "submitting_user": submitting_user_name,
             "selected_users": user_info_list,
             "what_did": what_you_did,
-            "what_learned": what_you_learned,
+            "what_next": what_do_next,
             "files": [
                 {"file_name": f["name"], "file_url": f["url_private"]} for f in files
             ],
@@ -83,7 +83,7 @@ def process_entry_submission(body, logger, client, category):
                 project_name,
                 user_info_list,
                 what_you_did,
-                what_you_learned,
+                what_do_next,
                 file_urls,
             )
         else:  # Handles programming
@@ -92,7 +92,7 @@ def process_entry_submission(body, logger, client, category):
                 project_name,
                 user_info_list,
                 what_you_did,
-                what_you_learned,
+                what_do_next,
                 file_urls,
             )
 

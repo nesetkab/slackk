@@ -64,7 +64,7 @@ def enter_data(data, client, submitting_user):
 
             project_id = get_or_create_project_id(cur, data["project_name"])
 
-            entry_data_pg = [data.get("what_did", ""), data.get("what_learned", "")]
+            entry_data_pg = [data.get("what_did", ""), data.get("what_next", "")]
             cur.execute(
                 "INSERT INTO entries (entry_data, creator_name) VALUES (%s, %s) RETURNING entry_id;",
                 (entry_data_pg, data.get("submitting_user")),
@@ -201,7 +201,7 @@ def fetch_single_entry(entry_id):
                 return {
                     "id": row[0],
                     "what_did": row[1][0] if row[1] and len(row[1]) > 0 else "",
-                    "what_learned": row[1][1] if row[1] and len(row[1]) > 1 else "",
+                    "what_next": row[1][1] if row[1] and len(row[1]) > 1 else "",
                     "project": row[2],
                 }
             return None
@@ -220,7 +220,7 @@ def update_entry(entry_id, data):
         conn = connect_from_env()
         with conn.cursor() as cur:
             project_id = get_or_create_project_id(cur, data["project_name"])
-            entry_data_pg = [data["what_did"], data["what_learned"]]
+            entry_data_pg = [data["what_did"], data["what_next"]]
 
             cur.execute(
                 "UPDATE entries SET entry_data = %s WHERE entry_id = %s;",

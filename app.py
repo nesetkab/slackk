@@ -107,7 +107,7 @@ def edit_entry_route(entry_id):
 def update_entry_route(entry_id):
     updated_data = {
         "what_did": request.form["what_did"],
-        "what_learned": request.form["what_learned"],
+        "what_next": request.form["what_next"],
         "project_name": request.form["project_name"],
     }
     update_entry(entry_id, updated_data)

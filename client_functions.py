@@ -282,8 +282,8 @@ def enterData(data, conn):
     command = "SELECT create_entry(%s::text,%s::text[],array[%s::text],%s::text[],%s::text[],%s::text,%s);"
     selected_users_str = convertArray(",".join(data_json["selected_users"]))
     files_str = [list(f.values()) for f in data_json["files"]]
-    what_did_learned_str = json.loads(
-        str([data_json["what_did"], data_json["what_learned"]]).replace("'", '"')
+    what_did_next_str = json.loads(
+        str([data_json["what_did"], data_json["what_next"]]).replace("'", '"')
     )
 
     cur.execute(
@@ -293,7 +293,7 @@ def enterData(data, conn):
             json.loads(selected_users_str),
             (data_json["category"]),
             files_str,
-            what_did_learned_str,
+            what_did_next_str,
             data_json["project_name"],
             data_json["milestone"],
         ),
