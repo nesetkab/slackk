@@ -26,7 +26,7 @@ def _create_progress_message_blocks(
         {
             "type": "section",
             "fields": [
-                {"type": "mrkdwn", "text": f"*Who Was There:*\n{', '.join(user_info)}"}
+                {"type": "mrkdwn", "text": f"*Authors:*\n{', '.join(user_info)}"}
             ],
         },
         {"type": "divider"},
@@ -347,7 +347,7 @@ def open_prog_modal(trigger_id, client):
                     "type": "input",
                     "block_id": "files_block",
                     "optional": True,
-                    "label": {"type": "plain_text", "text": "Upload Images"},
+                    "label": {"type": "plain_text", "text": "Upload Images (Optional)"},
                     "element": {
                         "type": "file_input",
                         "action_id": "file_input",
