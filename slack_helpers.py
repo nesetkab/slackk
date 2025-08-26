@@ -242,7 +242,7 @@ def open_mech_modal(trigger_id, client):
                 {
                     "type": "input",
                     "block_id": "next_block",
-                    "label": {"type": "plain_text", "text": "What to do Next:"},
+                    "label": {"type": "plain_text", "text": "What to do Next?:"},
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "next_input",
@@ -336,7 +336,7 @@ def open_prog_modal(trigger_id, client):
                 {
                     "type": "input",
                     "block_id": "next_block",
-                    "label": {"type": "plain_text", "text": "What to do Next:"},
+                    "label": {"type": "plain_text", "text": "What to do Next?:"},
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "next_input",
