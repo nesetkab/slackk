@@ -46,7 +46,7 @@ def process_entry_submission(body, logger, client, category):
 
         user_ids = values["users_block"]["users_select"]["selected_users"]
         what_you_did = values["did_block"]["did_input"]["value"]
-        what_do_next = values["learned_block"]["next_input"]["value"]
+        what_do_next = values["next_block"]["next_input"]["value"]
         files = values["files_block"]["file_input"].get("files", [])
 
         user_info_list = [
